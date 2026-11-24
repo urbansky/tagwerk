@@ -6,6 +6,36 @@ Tagwerk läuft komplett im Browser. Es gibt keinen Server und keine Konten. Dein
 
 ![Tagwerk mit Beispieldaten: oben die Aufgaben für heute mit Fortschritt, darunter das Projekt „Website-Relaunch“ mit Abschnitten und Unteraufgaben](docs/screenshot.png)
 
+## Features
+
+### Funktional
+
+- **Projekte mit Abschnitten, Aufgaben und Unteraufgaben.** Jedes Projekt hat eine eigene Farbe und lässt sich umbenennen, auf- und zuklappen und löschen. Eine Aufgabe, deren Titel mit „:“ endet, wird zum Abschnitt.
+- **Tag planen:** Jeden Morgen öffnet sich der Plan für heute automatisch. Zuerst entscheidest du über die Reste von gestern (mitnehmen oder zurücklegen), dann suchst du dir mit der Suche Aufgaben aus allen Projekten zusammen.
+- **Heute-Liste** mit Fortschrittsring, aufmunternden Sprüchen und kleiner Feier, wenn alles erledigt ist. Die Reihenfolge lässt sich per Drag & Drop ändern.
+- **Echter Tageswechsel um Mitternacht:** Offenes von heute wird zu den Resten von gestern.
+- **Wichtig-Markierung** mit Stern.
+- **Details zu jeder Aufgabe:** Notizen und Links, die direkt anklickbar sind.
+- **Verlauf** aller erledigten Aufgaben, gruppiert nach Tagen, mit Zählern für heute und gestern, einer Serie („Tage in Folge“) und Wiederherstellen.
+- **Löschen mit Rückgängig** (⌘Z).
+- **Aufräumen:** Erledigte Aufgaben verschwinden nach 14 Tagen aus den Projekten, im Verlauf bleiben sie.
+- **Import aus der Notizen-App oder Markdown:** Überschriften werden zu Projekten, Punkte zu Aufgaben, eingerückte Punkte zu Unteraufgaben, fett markierte Punkte zu wichtigen Aufgaben. Formatierter Text aus der Zwischenablage wird erkannt, abgehakte Punkte werden übersprungen. Eine Vorschau zeigt vorher, was entsteht. Bestehende Projekte lassen sich ersetzen oder ergänzen.
+- **Komplett mit der Tastatur bedienbar:** Navigieren (↑ ↓ bzw. J K), Erledigen (Leertaste), Für heute (T), Wichtig (I), Bearbeiten (↵), Ein- und Ausrücken (⇥ / ⇧⇥), Verschieben (⌥↑ ↓), Löschen (⌘⌫), Tag planen (P), Verlauf (H). <kbd>?</kbd> zeigt alle Tastenkürzel.
+- **Backup** als JSON exportieren und wieder einspielen.
+
+### Technisch
+
+- **Läuft komplett im Browser:** kein Server, keine Konten, keine Abhängigkeiten, kein Build-Schritt.
+- **Als App installierbar (PWA)** mit eigenem Fenster, Zahl der offenen Heute-Aufgaben am Dock-Icon und Dock-Menü („Tag planen“, „Neue Aufgabe“).
+- **Offline nutzbar:** Der Service Worker lädt zuerst aus dem Netz und fällt nur offline auf den Cache zurück.
+- **Speicherung in IndexedDB**, dauerhafter Speicher wird beim Browser angefragt.
+- **Mehrere Fenster:** Es schreibt immer nur eines (Web Locks API). Die anderen zeigen einen Hinweis und können übernehmen.
+- **Speicherordner** (z. B. in iCloud Drive) mit `tagwerk.json`, täglichen Sicherungen der letzten 30 Tage und Abgleich mit Konfliktauflösung (siehe [Speicherung](#speicherung)).
+- **Strenge Content Security Policy:** nur eigene Skripte aus `/js/`, keine Inline-Skripte. Ein Test sichert das ab.
+- **Versioniertes Speicherformat** mit Migrationen.
+- **Rücksicht auf „Bewegung reduzieren“:** Animationen werden dann abgeschaltet.
+- **Getestet** mit `node --test`: Parser, Modell, Tageswechsel, Migration, Abgleich und CSP.
+
 ## Entwickeln
 
 Kein Build-Schritt. Native ES-Module, keine Abhängigkeiten.
