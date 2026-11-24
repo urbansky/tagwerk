@@ -137,18 +137,21 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .sw{width:24px;height:24px;border-radius:50%;transition:transform .12s}
 .sw:hover{transform:scale(1.15)}
 .sw.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--text)}
-.section{margin-top:4px}
-.s-head{display:flex;align-items:center;gap:6px;padding:10px 10px 4px 14px;font-size:12px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);cursor:pointer;user-select:none}
+/* Abschnitt: ruhige Fläche innerhalb des Projekts – Anfang und Ende auf einen Blick */
+.section{background:var(--surface-2);border:1px solid var(--line-2);border-radius:12px;margin:10px 2px;padding:2px 0 6px}
+.section.collapsed{padding-bottom:2px}
+.s-head{display:flex;align-items:center;gap:6px;padding:8px 10px 4px 14px;font-size:14.5px;font-weight:650;letter-spacing:-.005em;color:var(--text);cursor:pointer;user-select:none;border-radius:10px}
+.section.collapsed .s-head{padding-bottom:8px}
+.s-head .chev{color:var(--muted)}
 .s-head .handle{margin-top:0}
-.s-head{border-radius:8px;margin-top:2px}
 .s-head.focus{background:var(--focus-soft);box-shadow:inset 0 0 0 1.5px rgba(10,132,255,.35)}
 .s-title{cursor:text;min-width:3ch}
-.s-head .edit{text-transform:none;letter-spacing:0;font-size:14px;color:var(--text);flex:1}
+.s-head .edit{font-size:14.5px;font-weight:650;color:var(--text);flex:1}
+.section .row:hover{background:#f3f1ec}
 .addrows{display:flex;gap:4px}
 .addrows .addrow:first-child{flex:1}
 .addrows .addrow.sec{width:auto;white-space:nowrap}
-.s-count{font-weight:500;color:var(--faint)}
-.s-body{border-left:2px solid var(--line-2);margin-left:18px;padding-left:2px}
+.s-count{font-size:12px;font-weight:500;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:2px}
 .subs{margin-left:30px}
 .addrow{display:flex;align-items:center;gap:10px;width:100%;padding:7px 12px;color:var(--faint);font-size:14px;border-radius:10px;text-align:left}
 .addrow:hover{color:var(--text);background:var(--surface-2)}
