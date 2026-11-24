@@ -10,6 +10,7 @@ import { dateStr, rollover, shouldPromptPlan, msToMidnight } from './day.js';
 import { status, onStatus, load, scheduleSave, flush, requestPersist, acquireLock, takeOver, current } from './store.js';
 import { fs, supported as fsSupported, onFileStatus, init as fsInit, chooseFolder, renewPermission, forgetFolder, resolveConflict, recheck } from './filesync.js';
 import { summarize } from './syncrules.js';
+import { canInstall, install, isApp, onInstallChange, setBadge } from './pwa.js';
 
 /* ---------- Icons ---------- */
 const RAYS = 'M12 2.4v2.3M12 19.3v2.3M2.4 12h2.3M19.3 12h2.3M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M5.2 18.8l1.6-1.6M17.2 6.8l1.6-1.6';
@@ -65,7 +66,9 @@ function render(){
   rendering = false;
   afterRender();
   scheduleSave();
+  const { done, total } = todayCounts(); setBadge(total - done);
 }
+onInstallChange(ev => { if (ev === 'installed') toast('☀️ Tagwerk ist jetzt als App installiert'); render(); });
 const hhmm = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 const when = ts => { const d = new Date(ts), t = new Date(); return d.toDateString() === t.toDateString() ? `heute ${hhmm(ts)} Uhr` : `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} ${hhmm(ts)} Uhr`; };
 function saveStateText(){
@@ -143,7 +146,9 @@ function renderTop(){
         <button data-act="newproject">${I.folder} Neues Projekt</button><hr>
         <button data-act="export">${I.down} Backup exportieren (JSON)</button>
         <button data-act="importjson">${I.up} Backup einspielen (JSON) …</button><hr>
-        <button data-act="help">${I.keyb} Tastenkürzel</button>
+        <button data-act="storage">${I.folder} Speicherort …</button>
+        ${canInstall() ? `<button data-act="install">${I.down} Als App installieren</button>` : ''}<hr>
+        <button data-act="help">${I.keyb} Tastenkürzel &amp; Hilfe</button>
       </div>` : ''}</div>
   </div></header>`;
 }
@@ -566,7 +571,25 @@ function renderHelp(){
     <h4>Beim Bearbeiten</h4>${r('↵', 'Speichern + neue Aufgabe darunter')}${r('⇥', 'Einrücken → Unteraufgabe')}${r('⇧ ⇥', 'Ausrücken')}${r('⌫', 'In leerer Zeile: löschen')}${r('Esc', 'Fertig')}
     <h4>Allgemein</h4>${r('P', 'Tag planen')}${r('H', 'Verlauf')}${r('?', 'Diese Hilfe')}
     <h4>Tag planen</h4>${r('/', 'Suchen')}${r('↑ ↓', 'Auswählen')}${r('Leertaste', 'Für heute an/aus')}${r('⌘ ↵', 'Tag starten')}
+    <h4>Als App</h4>
+    <p class="help-p">${isApp() ? '✓ Tagwerk läuft als installierte App.' : 'In Chrome: Menü <b>⋮ → Streamen, speichern und teilen → Seite als App installieren</b> (oder das Symbol rechts in der Adressleiste).'}
+      Dann hat Tagwerk ein eigenes Fenster, ein Icon im Dock mit der Zahl der heute noch offenen Aufgaben und per Rechtsklick „Tag planen“ und „Neue Aufgabe“.</p>
+    <p class="help-p">Damit Tagwerk morgens direkt da ist: <b>chrome://apps</b> öffnen, Rechtsklick auf Tagwerk und „Beim Anmelden öffnen“ bzw. in den App-Einstellungen „Beim Anmelden starten“ aktivieren.</p>
   </div></div>`;
+}
+
+/** Aufruf über das Dock-Menü: ?action=plan bzw. ?action=new */
+function handleAction(href = location.href){
+  const a = new URL(href).searchParams.get('action');
+  if (!a) return;
+  if (location.search) history.replaceState(null, '', location.pathname);
+  if (status.readOnly) return;
+  if (a === 'plan') { if (S.ui.ov) closeOv(); openPlan(); }
+  else if (a === 'new') {
+    if (S.ui.ov) closeOv();
+    const p = S.projects[0];
+    if (p) addTask({ pid: p.id }); else openOv('import');
+  }
 }
 
 /* ---------- Events ---------- */
@@ -581,6 +604,7 @@ document.addEventListener('click', e => {
   switch (act) {
     case 'noop': return;
     case 'storage': openOv('storage'); return;
+    case 'install': S.ui.menu = false; render(); install(); return;
     case 'fs-choose': fsAction(chooseFolder); return;
     case 'fs-renew': fsAction(renewPermission); return;
     case 'fs-forget': if (confirm(`Ordner „${fs.name}“ nicht mehr verwenden? Die Dateien darin bleiben erhalten, Tagwerk schreibt nur nicht mehr hinein.`)) fsAction(forgetFolder); return;
@@ -779,7 +803,10 @@ export async function start(){
   if (writer && !status.fatal) { rollover(); requestPersist(); }
   render(); renderLockScreen();
   if (writer && !status.fatal) await fsInit().catch(e => console.warn('Speicherordner:', e));
-  maybePromptPlan();
+  if (new URLSearchParams(location.search).has('action')) { S.prompted = S.day; handleAction(); }
+  else maybePromptPlan();
+  // Dock-Menü bei schon offener App: Chrome holt das vorhandene Fenster nach vorn (launch_handler) und meldet die URL hier
+  if ('launchQueue' in window) window.launchQueue.setConsumer(p => { if (p.targetURL) handleAction(p.targetURL); });
   armMidnight();
 }
 

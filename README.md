@@ -23,17 +23,28 @@ npm test        # node --test
 | `public/js/parser.js` | Import aus der Notizen-App bzw. Markdown |
 | `public/js/day.js` | Tageswechsel, Reste von gestern, automatisches „Tag planen“ |
 | `public/js/store.js` | Speicherung in IndexedDB, Schreibsperre für mehrere Fenster |
+| `public/js/filesync.js` | Speicherordner: `tagwerk.json`, Tagessicherungen, Abgleich |
+| `public/js/syncrules.js` | Regeln für den Abgleich Browser ⇄ Datei (testbar ohne DOM) |
+| `public/js/pwa.js` | Service Worker, Installieren, Dock-Badge |
 | `public/js/ui.js` | Oberfläche, Overlays, Tastatur |
-| `tests/` | Tests für Parser, Modell, Tageswechsel, Migration |
+| `public/sw.js`, `public/manifest.webmanifest` | PWA |
+| `tests/` | Tests für Parser, Modell, Tageswechsel, Migration, Abgleich |
 
 ## Speicherung
 
-- **Jetzt:** IndexedDB im Browser (`navigator.storage.persist()` wird angefragt). Es schreibt immer nur ein Fenster, dafür sorgt die Web Locks API.
-- **Geplant:** Automatisches Schreiben in einen gewählten Ordner (File System Access API), mit täglichen Sicherungen.
+1. **IndexedDB im Browser:** schnelle Arbeitskopie, `navigator.storage.persist()` wird angefragt. Es schreibt immer nur ein Fenster, dafür sorgt die Web Locks API.
+2. **Speicherordner** (Chrome, Edge, Brave, Arc), z. B. in iCloud Drive:
+   - `tagwerk.json` enthält immer den aktuellen Stand.
+   - `backups/tagwerk-JJJJ-MM-TT.json` enthält den Stand zu Beginn jedes Tages. Die letzten 30 bleiben erhalten.
+   - Beim Start und beim Zurückkehren ins Fenster wird abgeglichen. Hat sich nur eine Seite geändert, gewinnt sie. Haben sich beide geändert, fragt Tagwerk nach, und der andere Stand landet als `backups/konflikt-….json`.
+
+## Deployment
+
+Netlify ist mit diesem Repository verbunden, `netlify.toml` setzt `publish = "public"` ohne Build. Jeder Push auf `main` geht live unter https://mein-tagwerk.netlify.app. Der Service Worker lädt immer zuerst aus dem Netz und fällt nur offline auf den Cache zurück. Deshalb gibt es keine Versionsnummer, die man pflegen müsste.
 
 ## Fahrplan
 
 - [x] **M1** – Module, IndexedDB, echter Tageswechsel, Tests
-- [ ] **M2** – Speicherordner mit `tagwerk.json` und täglichen Sicherungen
-- [ ] **M3** – PWA (Manifest, Service Worker, Dock-Badge, Dock-Menü) und Deployment auf Netlify
+- [x] **M2** – Speicherordner mit `tagwerk.json` und täglichen Sicherungen
+- [x] **M3** – PWA (Manifest, Service Worker, Dock-Badge, Dock-Menü), `netlify.toml`
 - [ ] **M4** – Import mit echter Zwischenablage aus Notizen, Feinschliff

@@ -329,3 +329,4 @@ code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--su
 .cf-card p{margin:0 0 4px;font-size:14px}
 .cf-card .btn{margin-top:10px}
 .linkbtn{color:var(--focus);text-decoration:underline;text-underline-offset:2px}
+.help-p{font-size:13.5px;color:var(--muted);margin:6px 0 10px;line-height:1.5}
