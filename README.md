@@ -4,6 +4,8 @@ Aufgaben nach Projekten – und jeden Morgen der Plan für heute.
 
 Tagwerk läuft komplett im Browser. Es gibt keinen Server und keine Konten. Deine Daten verlassen den Rechner nicht.
 
+![Tagwerk mit Beispieldaten: oben die Aufgaben für heute mit Fortschritt, darunter das Projekt „Website-Relaunch“ mit Abschnitten und Unteraufgaben](docs/screenshot.png)
+
 ## Entwickeln
 
 Kein Build-Schritt. Native ES-Module, keine Abhängigkeiten.
