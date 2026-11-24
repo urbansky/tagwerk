@@ -305,3 +305,27 @@ button.badge:hover{filter:brightness(.95)}
 .lock{top:22vh}
 .lock-body{padding:18px 24px 24px;background:#fff}
 .lock-body p{margin:0 0 14px}
+
+/* Speicherort */
+.btn.st{color:var(--muted);font-size:13px;max-width:190px}
+.btn.st span{overflow:hidden;text-overflow:ellipsis}
+.btn.st.ok svg{color:var(--ok)}
+.btn.st.warn{color:var(--sun-ink);background:var(--sun-soft)}
+.btn.st.err{color:var(--danger);background:#fdecec}
+.banner{display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px 14px;border-radius:14px;font-size:14px;border:1px solid}
+.banner>svg{flex:none}
+.banner>div{flex:1}
+.banner.warn{background:#fff8e6;border-color:#ffe3a3;color:#6b4a00}
+.banner.err{background:#fdecec;border-color:#f6c6c8;color:#8a1f23}
+.storage p{margin:0 0 14px;font-size:14px}
+.storage hr{border:0;border-top:1px solid var(--line-2);margin:22px 0 14px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-2);font-size:14px}
+.kv span{color:var(--muted)}
+.st-acts{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 14px}
+code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--line-2);border-radius:5px;padding:0 4px}
+.cf{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:18px 24px 24px}
+.cf-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.cf-card h3{margin:0 0 6px;font-size:16px}
+.cf-card p{margin:0 0 4px;font-size:14px}
+.cf-card .btn{margin-top:10px}
+.linkbtn{color:var(--focus);text-decoration:underline;text-underline-offset:2px}

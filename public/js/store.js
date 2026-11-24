@@ -18,25 +18,38 @@ function db(){
     r.onerror = () => rej(r.error);
   });
 }
-async function idbGet(key){
+export async function idbGet(key){
   const d = await db();
   return new Promise((res, rej) => { const r = d.transaction(STORE).objectStore(STORE).get(key); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 }
-async function idbSet(key, val){
+export async function idbSet(key, val){
   const d = await db();
   return new Promise((res, rej) => { const tx = d.transaction(STORE, 'readwrite'); tx.objectStore(STORE).put(val, key); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); });
 }
 
 /* ---------- Laden & Speichern ---------- */
 let last = null, timer = null;
+const savedHooks = [];
+/** fn(rec) wird nach jedem erfolgreichen Speichern aufgerufen (z. B. für die Datei im Ordner). */
+export const onSaved = fn => savedHooks.push(fn);
+/** Zuletzt gespeicherter Datensatz { schema, savedAt, data } */
+export let current = null;
 
 /** Lädt den gespeicherten Stand. Gibt false zurück, wenn noch nichts gespeichert ist. */
 export async function load(){
   const rec = await idbGet(KEY);
   if (!rec) return false;
   applyData(migrate(rec));
-  last = JSON.stringify(rec.data); status.savedAt = rec.savedAt || null; emit();
+  last = JSON.stringify(rec.data); current = rec; status.savedAt = rec.savedAt || null; emit();
   return true;
+}
+
+/** Übernimmt einen Stand von außen (z. B. aus der Datei) und speichert ihn so, wie er ist. */
+export async function adopt(rec){
+  applyData(migrate(rec));
+  const json = JSON.stringify(rec.data);
+  await idbSet(KEY, rec);
+  last = json; current = rec; status.savedAt = rec.savedAt; status.error = null; emit();
 }
 
 /** Nach jeder Änderung aufrufen – speichert gebündelt. */
@@ -52,9 +65,10 @@ export async function flush(){
   if (json === last) return;
   last = json;
   const rec = { schema: snap.schema, savedAt: Date.now(), data: JSON.parse(json) };
-  try { await idbSet(KEY, rec); status.savedAt = rec.savedAt; status.error = null; }
-  catch (e) { status.error = e && e.message || 'Speichern fehlgeschlagen'; last = null; }
+  try { await idbSet(KEY, rec); current = rec; status.savedAt = rec.savedAt; status.error = null; }
+  catch (e) { status.error = e && e.message || 'Speichern fehlgeschlagen'; last = null; emit(); return; }
   emit();
+  savedHooks.forEach(fn => fn(rec));
 }
 
 addEventListener('pagehide', () => flush());

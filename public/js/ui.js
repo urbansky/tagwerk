@@ -7,7 +7,9 @@ import {
 } from './model.js';
 import { parseNotes, looksLikeSection, toModel } from './parser.js';
 import { dateStr, rollover, shouldPromptPlan, msToMidnight } from './day.js';
-import { status, onStatus, load, scheduleSave, flush, requestPersist, acquireLock, takeOver } from './store.js';
+import { status, onStatus, load, scheduleSave, flush, requestPersist, acquireLock, takeOver, current } from './store.js';
+import { fs, supported as fsSupported, onFileStatus, init as fsInit, chooseFolder, renewPermission, forgetFolder, resolveConflict, recheck } from './filesync.js';
+import { summarize } from './syncrules.js';
 
 /* ---------- Icons ---------- */
 const RAYS = 'M12 2.4v2.3M12 19.3v2.3M2.4 12h2.3M19.3 12h2.3M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M5.2 18.8l1.6-1.6M17.2 6.8l1.6-1.6';
@@ -59,20 +61,80 @@ function fmtTitle(s){
 let rendering = false, renderCount = 0;
 function render(){
   rendering = true; renderCount++;
-  $('#app').innerHTML = renderTop() + `<main class="wrap">${renderToday()}${renderProjects()}<p class="foot"><span id="saveState">${saveStateText()}</span> · <kbd>?</kbd> zeigt alle Tastenkürzel</p></main>`;
+  $('#app').innerHTML = renderTop() + `<main class="wrap">${storageBanner()}${renderToday()}${renderProjects()}<p class="foot"><span id="saveState">${saveStateText()}</span> · <kbd>?</kbd> zeigt alle Tastenkürzel</p></main>`;
   rendering = false;
   afterRender();
   scheduleSave();
 }
+const hhmm = ts => new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+const when = ts => { const d = new Date(ts), t = new Date(); return d.toDateString() === t.toDateString() ? `heute ${hhmm(ts)} Uhr` : `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} ${hhmm(ts)} Uhr`; };
 function saveStateText(){
   if (status.error) return `<span style="color:var(--danger)">⚠︎ Speichern fehlgeschlagen: ${esc(status.error)}</span>`;
   if (!status.savedAt) return 'Wird in diesem Browser gespeichert';
-  return `✓ Gespeichert ${new Date(status.savedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr (in diesem Browser)`;
+  const where = fs.state === 'ok' ? `im Browser und im Ordner „${esc(fs.name)}“` : 'nur in diesem Browser';
+  return `✓ Gespeichert ${hhmm(status.savedAt)} Uhr – ${where}`;
 }
 onStatus(() => { const el = $('#saveState'); if (el) el.innerHTML = saveStateText(); renderLockScreen(); });
+
+/* ---------- Speicherort ---------- */
+function storageChip(){
+  const s = fs.state;
+  if (s === 'ok' && !fs.conflict) return `<button class="btn st ok" data-act="storage" title="Gespeichert im Ordner „${esc(fs.name)}“">${I.folder}<span class="lbl-t">${esc(fs.name)}</span></button>`;
+  if (s === 'needs-permission') return `<button class="btn st warn" data-act="fs-renew" title="Tagwerk darf gerade nicht in den Ordner schreiben">${I.folder}<span class="lbl-t">Zugriff erneuern</span></button>`;
+  if (s === 'error' || fs.conflict) return `<button class="btn st err" data-act="storage">${I.folder}<span class="lbl-t">${fs.conflict ? 'Konflikt' : 'Ordner-Problem'}</span></button>`;
+  return `<button class="btn st ${s === 'none' ? 'warn' : ''}" data-act="storage" title="Speicherort">${I.folder}<span class="lbl-t">Nur im Browser</span></button>`;
+}
+function storageBanner(){
+  if (status.readOnly) return '';
+  if (fs.conflict) return `<div class="banner err">${I.folder}<div><b>Ordner und Browser haben unterschiedliche Stände.</b> Entscheide, welcher gelten soll – der andere wird gesichert.</div><button class="btn sm primary" data-act="fs-conflict">Ansehen</button></div>`;
+  if (fs.state === 'needs-permission') return `<div class="banner warn">${I.folder}<div><b>Tagwerk darf gerade nicht in deinen Ordner „${esc(fs.name)}“ schreiben.</b> Der Browser fragt nach einem Neustart manchmal erneut. Bis dahin wird nur im Browser gespeichert.</div><button class="btn sm primary" data-act="fs-renew">Zugriff erneuern</button></div>`;
+  if (fs.state === 'error') return `<div class="banner err">${I.folder}<div><b>Speichern im Ordner klappt gerade nicht.</b> ${esc(fs.error || '')}</div><button class="btn sm" data-act="storage">Speicherort …</button></div>`;
+  if (fs.state === 'none' && S.projects.length) return `<div class="banner warn">${I.folder}<div><b>Deine Aufgaben liegen bisher nur in diesem Browser.</b> Wähle einen Ordner (z. B. in iCloud Drive) – Tagwerk speichert dort automatisch mit täglichen Sicherungen.</div><button class="btn sm primary" data-act="fs-choose">Ordner wählen</button></div>`;
+  return '';
+}
+function renderStorage(){
+  const s = fs.state;
+  const row = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  let body;
+  if (s === 'unsupported') body = `<p>Dieser Browser kann keine Dateien in einen Ordner schreiben. Das geht nur in Chrome, Edge, Brave oder Arc.</p><p class="muted">Deine Daten liegen in diesem Browser. Sichere sie regelmäßig über <b>Backup exportieren</b>.</p>`;
+  else if (s === 'none') body = `<p>Deine Aufgaben liegen bisher nur in diesem Browser. Wenn du einen Ordner wählst, schreibt Tagwerk jede Änderung automatisch in <code>tagwerk.json</code> und legt täglich eine Sicherung an.</p>
+      <p class="muted">Tipp: Ein Ordner in iCloud Drive oder Dropbox ist zusätzlich in der Cloud gesichert. Wählst du einen Ordner, in dem schon eine <code>tagwerk.json</code> liegt, wird sie übernommen.</p>
+      <button class="btn primary" data-act="fs-choose">${I.folder} Ordner wählen …</button>`;
+  else body = `${row('Ordner', esc(fs.name || '–'))}
+      ${row('Status', s === 'ok' ? (fs.conflict ? '⚠︎ Konflikt' : '✓ Speichert automatisch') : s === 'needs-permission' ? '⚠︎ Zugriff erneuern' : '⚠︎ Fehler')}
+      ${row('Zuletzt in Datei geschrieben', fs.lastWrite ? when(fs.lastWrite) : '–')}
+      ${row('Tägliche Sicherungen', fs.backups != null ? `${fs.backups} (die letzten 30 bleiben)` : 'im Unterordner „backups“')}
+      ${fs.error ? `<p style="color:var(--danger)">${esc(fs.error)}</p>` : ''}
+      <div class="st-acts">${s === 'needs-permission' ? `<button class="btn primary" data-act="fs-renew">Zugriff erneuern</button>` : ''}
+        <button class="btn" data-act="fs-choose">Anderen Ordner wählen …</button>
+        <button class="btn danger" data-act="fs-forget">Ordner nicht mehr verwenden</button></div>
+      <p class="muted small">Im Ordner: <code>tagwerk.json</code> (immer der aktuelle Stand) und <code>backups/</code> mit dem Stand zu Beginn jedes Tages.</p>`;
+  return `<div class="scrim" data-act="close-ov"></div><aside class="drawer" aria-label="Speicherort">
+    <div class="d-head"><h2>${I.folder} Speicherort</h2><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
+    <div class="d-body storage">${body}
+      <hr><p class="muted small">Unabhängig davon kannst du jederzeit ein Backup als Datei exportieren.</p><button class="btn sm" data-act="export">${I.down} Backup exportieren</button></div>
+  </aside>`;
+}
+function renderConflict(){
+  const c = fs.conflict; if (!c) return '';
+  const a = summarize(c.file), b = summarize(c.local);
+  const card = (t, s, act, lbl) => `<div class="cf-card"><h3>${t}</h3><p>${s.savedAt ? `Stand: ${new Date(s.savedAt).toLocaleString('de-DE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'ohne Zeitstempel'}</p><p class="muted">${s.projects} Projekte · ${s.open} offene Aufgaben</p><button class="btn primary" data-act="${act}">${lbl}</button></div>`;
+  return `<div class="scrim"></div><div class="modal small"><div class="m-head"><div><h2>Welcher Stand soll gelten?</h2><p class="muted">Die Datei im Ordner „${esc(fs.name)}“ und dieser Browser wurden unabhängig voneinander geändert – z. B. auf einem anderen Mac. Der Stand, den du nicht wählst, wird im Ordner unter <code>backups/</code> gesichert.</p></div></div>
+    <div class="cf">${card('Im Ordner', a, 'fs-use-file', 'Ordner-Stand verwenden')}${card('In diesem Browser', b, 'fs-use-local', 'Browser-Stand behalten')}</div></div>`;
+}
+onFileStatus((_, ev) => {
+  if (ev.reloaded) { rollover(); S.focus = S.editing = null; }
+  if (fs.conflict && !S.ui.ov) { openOv('conflict'); return; }
+  if (S.ui.ov === 'storage' || (S.ui.ov === 'conflict' && !fs.conflict)) { if (S.ui.ov === 'conflict') { closeOv(); return; } renderOv(); }
+  render();
+});
+async function fsAction(fn){
+  try { await fn(); } catch (e) { toast(esc((e && e.message) || String(e))); }
+}
 function renderTop(){
   return `<header class="top"><div class="top-in">
     <div class="brand"><span class="logo">${I.sunSm}</span>Tagwerk</div><span class="spacer"></span>
+    ${storageChip()}
     <button class="btn" data-act="history" title="Verlauf (H)">${I.clock}<span class="lbl-t">Verlauf</span></button>
     <button class="btn sun" data-act="plan" title="Tag planen (P)">${I.sun}<span class="lbl-t">Tag planen</span></button>
     <div class="menu"><button class="btn icon" data-act="menu" title="Mehr">${I.more}</button>${S.ui.menu ? `
@@ -105,7 +167,8 @@ function renderToday(){
     body = `<div class="empty">${sunArt()}
       <h3>Willkommen bei Tagwerk!</h3>
       <p>Hol dir deine Aufgaben aus der Notizen-App – oder leg direkt ein erstes Projekt an. Danach suchst du dir jeden Morgen aus, was heute dran ist.</p>
-      <button class="btn sun lg" data-act="import">${I.paste} Aus Notizen importieren</button> <button class="btn lg" data-act="newproject">${I.folder} Neues Projekt</button></div>`;
+      <button class="btn sun lg" data-act="import">${I.paste} Aus Notizen importieren</button> <button class="btn lg" data-act="newproject">${I.plus} Neues Projekt</button>
+      ${fsSupported && fs.state === 'none' ? `<p class="small muted" style="margin-top:18px">Schon einen Tagwerk-Ordner? <button class="linkbtn" data-act="fs-choose">Ordner öffnen …</button></p>` : ''}</div>`;
   } else if (!total) {
     const lo = S.leftovers.length;
     body = `<div class="empty">${sunArt()}
@@ -323,6 +386,8 @@ function renderOv(){
   else if (v === 'history') o.innerHTML = renderHistory();
   else if (v === 'detail') o.innerHTML = renderDetail();
   else if (v === 'help') o.innerHTML = renderHelp();
+  else if (v === 'storage') o.innerHTML = renderStorage();
+  else if (v === 'conflict') o.innerHTML = renderConflict();
 }
 
 /* Tag planen */
@@ -515,7 +580,14 @@ document.addEventListener('click', e => {
   if (act !== 'menu' && act !== 'noop' && act !== 'color' && act !== 'setcolor' && (S.ui.menu || S.ui.color)) { S.ui.menu = false; S.ui.color = null; }
   switch (act) {
     case 'noop': return;
-    case 'takeover': takeOver(() => render()).then(() => { rollover(); render(); maybePromptPlan(); }); return;
+    case 'storage': openOv('storage'); return;
+    case 'fs-choose': fsAction(chooseFolder); return;
+    case 'fs-renew': fsAction(renewPermission); return;
+    case 'fs-forget': if (confirm(`Ordner „${fs.name}“ nicht mehr verwenden? Die Dateien darin bleiben erhalten, Tagwerk schreibt nur nicht mehr hinein.`)) fsAction(forgetFolder); return;
+    case 'fs-conflict': openOv('conflict'); return;
+    case 'fs-use-file': fsAction(() => resolveConflict('file')); return;
+    case 'fs-use-local': fsAction(() => resolveConflict('local')); return;
+    case 'takeover': takeOver(() => render()).then(async () => { rollover(); render(); await fsInit().catch(() => {}); maybePromptPlan(); }); return;
     case 'toggle': toggleDone(d.id, a); return;
     case 'today': toggleToday(d.id); return;
     case 'edit': S.editing = d.key; S.focus = d.key; render(); return;
@@ -696,7 +768,7 @@ function checkDay(){
 }
 let midnightT;
 function armMidnight(){ clearTimeout(midnightT); midnightT = setTimeout(() => { checkDay(); armMidnight(); }, msToMidnight()); }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkDay(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkDay(); if (!status.readOnly) recheck(); } });
 addEventListener('focus', checkDay);
 
 /* ---------- Start ---------- */
@@ -706,6 +778,7 @@ export async function start(){
   catch (err) { status.readOnly = true; status.fatal = (err && err.message) || String(err); }
   if (writer && !status.fatal) { rollover(); requestPersist(); }
   render(); renderLockScreen();
+  if (writer && !status.fatal) await fsInit().catch(e => console.warn('Speicherordner:', e));
   maybePromptPlan();
   armMidnight();
 }
