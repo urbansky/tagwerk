@@ -39,7 +39,7 @@ export function migrate(raw){
 
 const arr = v => Array.isArray(v) ? v : [];
 function normTask(t){
-  return { type: 'task', id: String(t.id), title: String(t.title ?? ''), important: !!t.important, note: String(t.note ?? ''), done: !!t.done, children: arr(t.children).map(normTask) };
+  return { type: 'task', id: String(t.id), title: String(t.title ?? ''), important: !!t.important, note: String(t.note ?? ''), done: !!t.done, ...(t.doneAt ? { doneAt: +t.doneAt } : {}), children: arr(t.children).map(normTask) };
 }
 function normalize(d){
   const projects = arr(d.projects).map(p => ({

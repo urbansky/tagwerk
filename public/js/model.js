@@ -49,12 +49,38 @@ export function firstInSection(sid){
 /* ---------- Erledigen ---------- */
 export function markDone(id, at = Date.now()){
   const f = find(id); const n = f.n;
-  n.done = true; n.children.forEach(c => c.done = true);
+  n.done = true; n.doneAt = at;
+  n.children.forEach(c => { if (!c.done) { c.done = true; c.doneAt = at; } });
   S.history.push({ id, title: n.title, path: path(f), color: f.p.color, at });
 }
 export function undone(id){
   const f = find(id); if (!f) return;
-  f.n.done = false; S.history = S.history.filter(h => h.id !== id);
+  f.n.done = false; delete f.n.doneAt; S.history = S.history.filter(h => h.id !== id);
+}
+export const KEEP_DONE_DAYS = 14;
+/**
+ * Entfernt Aufgaben, die vor mehr als KEEP_DONE_DAYS Tagen erledigt wurden, aus den Projekten.
+ * Im Verlauf bleiben sie stehen. Gibt die Anzahl entfernter Einträge zurück.
+ */
+export function purgeDone(now = Date.now()){
+  const cutoff = now - KEEP_DONE_DAYS * 864e5; let n = 0;
+  const old = t => { if (t.done && !t.doneAt) t.doneAt = now; return t.done && t.doneAt < cutoff; };
+  const prune = list => {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const it = list[i];
+      if (it.type === 'section') { prune(it.children); continue; }
+      if (old(it) && !it.children.some(c => !c.done)) { list.splice(i, 1); n++; continue; }
+      it.children = it.children.filter(c => { const o = old(c); if (o) n++; return !o; });
+    }
+  };
+  S.projects.forEach(p => prune(p.items));
+  return n;
+}
+
+/* ---------- Projekte ---------- */
+export function renameProject(pid, name){
+  const p = S.projects.find(p => p.id === pid); const v = String(name).trim();
+  if (p && v) p.name = v;
 }
 
 /* ---------- Umwandeln: Aufgabe ⇄ Abschnitt ---------- */
@@ -136,6 +162,16 @@ export function deleteNode(id){
 export let lastDeleted = null;
 /** Löscht eine Aufgabe bzw. löst einen Abschnitt auf. Gibt eine Beschreibung fürs UI zurück. */
 export function removeWithUndo(id){
+  const pick = (arr, ids) => ids.map(x => [x, arr.indexOf(x)]).filter(([, i]) => i >= 0);
+  const pi = S.projects.findIndex(p => p.id === id);
+  if (pi >= 0) {
+    const p = S.projects[pi], ids = [];
+    walk((n, ctx) => { if (ctx.p === p) ids.push(n.id); });
+    lastDeleted = { kind: 'project', n: p, list: S.projects, i: pi, today: pick(S.today, ids), left: pick(S.leftovers, ids) };
+    S.projects.splice(pi, 1);
+    S.today = S.today.filter(x => !ids.includes(x)); S.leftovers = S.leftovers.filter(x => !ids.includes(x));
+    return { kind: 'project', title: p.name, open: openCount(p.items) };
+  }
   const f = find(id); if (!f) return null;
   if (f.n.type === 'section') {
     const i = f.list.indexOf(f.n);
@@ -144,8 +180,7 @@ export function removeWithUndo(id){
     return { kind: 'dissolve', title: f.n.title, open: f.n.children.filter(c => !c.done).length };
   }
   const ids = [id, ...f.n.children.map(c => c.id)];
-  const pick = arr => ids.map(x => [x, arr.indexOf(x)]).filter(([, i]) => i >= 0);
-  lastDeleted = { kind: 'delete', n: f.n, list: f.list, i: f.list.indexOf(f.n), today: pick(S.today), left: pick(S.leftovers) };
+  lastDeleted = { kind: 'delete', n: f.n, list: f.list, i: f.list.indexOf(f.n), today: pick(S.today, ids), left: pick(S.leftovers, ids) };
   f.list.splice(lastDeleted.i, 1);
   S.today = S.today.filter(x => !ids.includes(x)); S.leftovers = S.leftovers.filter(x => !ids.includes(x));
   return { kind: 'delete', title: f.n.title };

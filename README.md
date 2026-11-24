@@ -47,4 +47,4 @@ Netlify ist mit diesem Repository verbunden, `netlify.toml` setzt `publish = "pu
 - [x] **M1** – Module, IndexedDB, echter Tageswechsel, Tests
 - [x] **M2** – Speicherordner mit `tagwerk.json` und täglichen Sicherungen
 - [x] **M3** – PWA (Manifest, Service Worker, Dock-Badge, Dock-Menü), `netlify.toml`
-- [ ] **M4** – Import mit echter Zwischenablage aus Notizen, Feinschliff
+- [x] **M4** – Import aus formatierter Zwischenablage (HTML aus Notizen), Projekte umbenennen und löschen, erledigte Aufgaben nach 14 Tagen aus den Projekten räumen (im Verlauf bleiben sie)

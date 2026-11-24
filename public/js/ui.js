@@ -3,9 +3,10 @@ import { S, snapshot, migrate, applyData } from './state.js';
 import {
   COLORS, find, path, isLeaf, openCount, getList, todayCounts, newProject, newSection, insertAfter, appendTask,
   firstInSection, markDone, undone, applyTitle, indent, outdent, moveItem, reorder, deleteNode,
-  removeWithUndo, restoreDeleted, lastDeleted, newTask
+  removeWithUndo, restoreDeleted, lastDeleted, newTask, renameProject
 } from './model.js';
 import { parseNotes, looksLikeSection, toModel } from './parser.js';
+import { htmlToNotes, looksStructured } from './htmlimport.js';
 import { dateStr, rollover, shouldPromptPlan, msToMidnight } from './day.js';
 import { status, onStatus, load, scheduleSave, flush, requestPersist, acquireLock, takeOver, current } from './store.js';
 import { fs, supported as fsSupported, onFileStatus, init as fsInit, chooseFolder, renewPermission, forgetFolder, resolveConflict, recheck } from './filesync.js';
@@ -36,6 +37,7 @@ const I = {
   down:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></svg>`,
   up:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6M3 13.5h10"/></svg>`,
   folder:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 013.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0114 6v5.5a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 11.5z"/></svg>`,
+  trash:`<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M6.5 4.5V3a1 1 0 011-1h1a1 1 0 011 1v1.5M4 4.5l.7 8.6a1 1 0 001 .9h4.6a1 1 0 001-.9l.7-8.6M6.7 7v4.5M9.3 7v4.5"/></svg>`,
   keyb:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1.5" y="4" width="13" height="8.5" rx="1.8"/><path d="M4.5 7h.01M7 7h.01M9.5 7h.01M12 7h.01M5 10h6"/></svg>`,
 };
 const sunArt = () => `<div class="sunart"><div class="rays">${[0,1,2,3,4,5,6,7].map(i=>`<i style="transform:rotate(${i*45}deg)"></i>`).join('')}</div><div class="core"></div></div>`;
@@ -218,10 +220,13 @@ function projectBlock(p){
       <span class="handle" data-h="project">${I.grip}</span>
       <span class="chev">${I.chev}</span>
       <button class="pdot" data-act="color" data-id="${p.id}" style="background:${p.color}" title="Farbe ändern"></button>
-      <span class="p-name">${esc(p.name)}</span>
+      ${S.ui.pedit === p.id
+        ? `<input class="edit pedit p-name" data-pedit="${p.id}" data-act="noop" value="${esc(p.name)}" placeholder="Projektname">`
+        : `<span class="p-name" data-act="p-edit" data-id="${p.id}" title="Umbenennen">${esc(p.name)}</span>`}
       <span class="chip">${open} offen</span>
       ${tc ? `<span class="chip sun">${I.sunSm} ${tc} heute</span>` : ''}
       <span class="spacer"></span>
+      <button class="ibtn p-del" data-act="p-del" data-id="${p.id}" title="Projekt löschen">${I.trash}</button>
       <button class="ibtn" data-act="add" data-pid="${p.id}" title="Neue Aufgabe">${I.plus}</button>
       ${S.ui.color === p.id ? `<div class="palette" data-act="noop">${COLORS.map(c => `<button class="sw ${c === p.color ? 'on' : ''}" data-act="setcolor" data-pid="${p.id}" data-c="${c}" style="background:${c}"></button>`).join('')}</div>` : ''}
     </div>
@@ -336,7 +341,9 @@ function addSection(pid){ const s = newSection(pid); S.editing = S.focus = 'p:' 
 function addTask(where){ S.editing = S.focus = 'p:' + appendTask(where); render(); }
 function deleteWithUndo(id){
   const r = removeWithUndo(id); if (!r) return;
-  if (r.kind === 'dissolve') {
+  if (r.kind === 'project') {
+    toast(`🗑️ Projekt gelöscht <span style="opacity:.6">– ${esc(r.title.slice(0, 40))}${r.open ? ` · ${r.open} offene ${r.open === 1 ? 'Aufgabe' : 'Aufgaben'}` : ''}</span>`, id, 'undo-del');
+  } else if (r.kind === 'dissolve') {
     const t = r.title || 'Abschnitt';
     toast(`🗂️ Abschnitt aufgelöst <span style="opacity:.6">– ${esc(t.slice(0, 40))}${r.open ? ` · ${r.open} ${r.open === 1 ? 'Aufgabe bleibt' : 'Aufgaben bleiben'}` : ''}</span>`, id, 'undo-del');
   } else {
@@ -508,7 +515,7 @@ function renderImpPreview(){
     count++;
     return `<div class="pv-row"><span class="mini"></span>${n.important ? `<span class="star">${I.star}</span>` : ''}${esc(n.text)}${n.children.length ? ` <button class="badge task" data-act="imp-toggle" data-k="${k}" title="In Abschnitt umwandeln">Aufgabe</button>` : ''}</div>` + n.children.map(c => sub(c, 'sub')).join('');
   }).join('')).join('');
-  const b = $('#impBtn'); b.disabled = !count; b.textContent = count ? `${count} Aufgaben in ${parsed.length} Projekte importieren` : 'Importieren';
+  const b = $('#impBtn'); b.disabled = !count; b.textContent = count ? `${count} ${count === 1 ? 'Aufgabe' : 'Aufgaben'} in ${parsed.length} ${parsed.length === 1 ? 'Projekt' : 'Projekte'} importieren` : 'Importieren';
 }
 function doImport(){
   const { parsed, over, mode } = S.ui.imp;
@@ -541,7 +548,7 @@ function renderHistory(){
     <div class="stats"><div class="stat"><b>${cnt('Heute')}</b><span>heute erledigt</span></div><div class="stat"><b>${cnt('Gestern')}</b><span>gestern</span></div><div class="stat"><b>🔥 ${streak()}</b><span>Tage in Folge</span></div></div>
     <div class="d-body">${[...groups].map(([l, hs]) => `<div class="h-lbl">${l}</div>` + hs.map(h => `<div class="h-row"><span class="hc">${I.checkS}</span>
       <div class="title" style="cursor:default"><div>${fmtTitle(h.title)}</div><div class="meta"><span class="ctx"><span class="dot" style="background:${h.color}"></span>${esc(h.path.join(' › '))}</span><span>${new Date(h.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span></div></div>
-      <button class="ibtn" data-act="hist-restore" data-id="${h.id}" title="Wiederherstellen">${I.undo}</button></div>`).join('')).join('') || '<p class="muted">Noch nichts erledigt.</p>'}</div>
+      ${find(h.id) ? `<button class="ibtn" data-act="hist-restore" data-id="${h.id}" title="Wiederherstellen">${I.undo}</button>` : ''}</div>`).join('')).join('') || '<p class="muted">Noch nichts erledigt.</p>'}</div>
   </aside>`;
 }
 
@@ -603,6 +610,8 @@ document.addEventListener('click', e => {
   if (act !== 'menu' && act !== 'noop' && act !== 'color' && act !== 'setcolor' && (S.ui.menu || S.ui.color)) { S.ui.menu = false; S.ui.color = null; }
   switch (act) {
     case 'noop': return;
+    case 'p-edit': S.ui.pedit = d.id; render(); return;
+    case 'p-del': { const p = S.projects.find(x => x.id === d.id); const el = a.closest('.project'); if (el) { el.style.transition = 'opacity .18s ease, transform .18s ease'; el.style.opacity = '0'; el.style.transform = 'translateX(-12px)'; } setTimeout(() => { deleteWithUndo(p.id); render(); }, el ? 180 : 0); return; }
     case 'storage': openOv('storage'); return;
     case 'install': S.ui.menu = false; render(); install(); return;
     case 'fs-choose': fsAction(chooseFolder); return;
@@ -658,8 +667,24 @@ document.addEventListener('input', e => {
   else if (t.id === 'planq') { S.ui.plan.q = t.value; S.ui.plan.f = null; renderPick(); }
   else if (t.dataset.f && S.ui.detail) { const f = find(S.ui.detail); f.n[t.dataset.f] = t.dataset.f === 'title' ? t.value.replace(/\n/g, ' ') : t.value; scheduleSave(); }
 });
+// Einfügen im Import: formatierte Zwischenablage (Notizen) bevorzugen – Einrückung und Fett sind dort zuverlässig
+document.addEventListener('paste', e => {
+  const t = e.target; if (t.id !== 'impText' || !e.clipboardData) return;
+  const html = e.clipboardData.getData('text/html');
+  if (!looksStructured(html)) return;
+  const text = htmlToNotes(html); if (!text.trim()) return;
+  e.preventDefault();
+  t.setRangeText(text, t.selectionStart, t.selectionEnd, 'end');
+  t.dispatchEvent(new Event('input', { bubbles: true }));
+  toast('Formatierung aus der Zwischenablage übernommen');
+});
+function commitProjectName(inp, save = true){
+  if (save) renameProject(inp.dataset.pedit, inp.value);
+  S.ui.pedit = null; render();
+}
 document.addEventListener('focusout', e => {
   const t = e.target;
+  if (!rendering && t.matches && t.matches('input.pedit') && S.ui.pedit === t.dataset.pedit) { commitProjectName(t); return; }
   if (rendering || !t.matches || !t.matches('input.edit')) return;
   const key = t.dataset.edit; if (S.editing !== key) return;
   const f = commitEdit(t); S.editing = null;
@@ -685,6 +710,10 @@ function exportJSON(){
 document.addEventListener('keydown', e => {
   const t = e.target;
   if (status.readOnly) return;
+  if (t.matches && t.matches('input.pedit')) {
+    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); commitProjectName(t, e.key === 'Enter'); }
+    return;
+  }
   if (t.matches && t.matches('input.edit')) return editKey(e);
   if (S.ui.ov === 'plan') return planKey(e);
   if (S.ui.ov) { if (e.key === 'Escape') closeOv(); return; }

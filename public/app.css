@@ -330,3 +330,10 @@ code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--su
 .cf-card .btn{margin-top:10px}
 .linkbtn{color:var(--focus);text-decoration:underline;text-underline-offset:2px}
 .help-p{font-size:13.5px;color:var(--muted);margin:6px 0 10px;line-height:1.5}
+
+/* Projekt umbenennen / löschen */
+.p-name{cursor:text}
+input.pedit{flex:0 1 260px;min-width:120px;border-bottom:1.5px solid var(--focus);padding:1px 0}
+.p-del{opacity:0}
+.p-head:hover .p-del{opacity:1}
+.p-del:hover{color:var(--danger);background:#fdecec}

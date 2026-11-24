@@ -1,6 +1,6 @@
 /* Tageswechsel: offene Heute-Aufgaben werden zu Resten von gestern */
 import { S } from './state.js';
-import { find, walk } from './model.js';
+import { find, walk, purgeDone } from './model.js';
 
 const pad = n => String(n).padStart(2, '0');
 export const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -16,6 +16,7 @@ export function rollover(today = dayKey()){
     S.leftovers = [...new Set([...S.leftovers.filter(alive), ...open])];
     S.today = [];
     S.planned = false;
+    purgeDone();
   }
   S.day = today;
   return true;
