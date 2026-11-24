@@ -1,0 +1,7 @@
+# UI-Entwurf mit privaten Beispieldaten – nur lokal
+entwurf.html
+
+.DS_Store
+node_modules/
+.claude/settings.local.json
+.netlify/

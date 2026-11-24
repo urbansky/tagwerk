@@ -1,0 +1,10 @@
+{
+  "name": "tagwerk",
+  "private": true,
+  "type": "module",
+  "description": "Aufgaben nach Projekten – und jeden Morgen der Plan für heute.",
+  "scripts": {
+    "test": "node --test",
+    "dev": "python3 -m http.server 8765 --directory public"
+  }
+}
