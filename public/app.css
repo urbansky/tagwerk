@@ -57,7 +57,7 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .ring svg{transform:rotate(-90deg);display:block}
 .ring .bgc{stroke:#f1efe9}
 .ring .fg{stroke:var(--ok);transition:stroke-dashoffset .9s var(--ease)}
-.ring .lbl{position:absolute;inset:0;display:grid;place-items:center;font-size:13.5px;font-weight:650}
+.ring .lbl{position:absolute;inset:0;margin:0;letter-spacing:0;display:grid;place-items:center;font-size:13.5px;font-weight:650}
 .today.celebrate .ring{animation:glow 1.6s var(--ease)}
 .t-list{position:relative;padding:4px 14px 6px}
 .t-foot{padding:0 14px 14px}
