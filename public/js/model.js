@@ -1,5 +1,6 @@
 /* Datenmodell: Projekte → (Abschnitte →) Aufgaben → Unteraufgaben. Keine DOM-Zugriffe. */
 import { S } from './state.js';
+import { dayKey, nextDue, normRepeat } from './repeat.js';
 
 export const COLORS = ['#0a84ff', '#2fb15a', '#8e5cf7', '#ff7a1a', '#d9a200', '#ff4f8b', '#00a3a3', '#8e8e93'];
 export const nid = () => crypto.randomUUID();
@@ -16,7 +17,14 @@ export function walk(fn){
 export function find(id){ let r = null; walk((n, ctx) => { if (!r && n.id === id) r = { n, ...ctx }; }); return r; }
 export const path = f => [f.p.name, f.section && f.section.title, f.parent && f.parent.title].filter(Boolean);
 export const isLeaf = n => n.type === 'task' && !n.children.some(c => !c.done);
-export const openCount = list => list.reduce((a, n) => a + (n.type === 'section' ? openCount(n.children) : (n.done ? 0 : 1 + n.children.filter(c => !c.done).length)), 0);
+const curDay = () => S.day || dayKey();
+/** Wiederkehrende Aufgabe, deren nächster Termin noch nicht erreicht ist (wird gedimmt gezeigt, zählt nicht als offen) */
+export const isResting = (n, today = curDay()) => !!n.repeat && !n.done && !!n.due && n.due > today;
+/** Wiederkehrende Aufgabe, die heute (oder schon früher) fällig ist */
+export const isDue = (n, today = curDay()) => !!n.repeat && !n.done && (!n.due || n.due <= today);
+export const openCount = list => list.reduce((a, n) => a + (n.type === 'section' ? openCount(n.children) : (n.done || isResting(n) ? 0 : 1 + n.children.filter(c => !c.done).length)), 0);
+/** Was kommt in „Heute“, wenn man diese Aufgabe einplant: sie selbst oder ihre offenen Unteraufgaben */
+export const leafIds = n => isLeaf(n) ? [n.id] : n.children.filter(c => !c.done).map(c => c.id);
 export function getList(listId){ const p = S.projects.find(p => p.id === listId); if (p) return p.items; const f = find(listId); return f ? f.n.children : null; }
 export function todayCounts(){ const items = S.today.map(find).filter(Boolean); return { done: items.filter(f => f.n.done).length, total: items.length }; }
 
@@ -51,11 +59,59 @@ export function markDone(id, at = Date.now()){
   const f = find(id); const n = f.n;
   n.done = true; n.doneAt = at;
   n.children.forEach(c => { if (!c.done) { c.done = true; c.doneAt = at; } });
-  S.history.push({ id, title: n.title, path: path(f), color: f.p.color, at });
+  const h = { id, title: n.title, path: path(f), color: f.p.color, at };
+  // Wiederkehrend: Der nächste Termin steht sofort fest; wieder offen wird die Aufgabe beim Tageswechsel (renewRecurring)
+  if (n.repeat) { if (n.due) h.due = n.due; n.due = nextDue(n.repeat, n.due, dayKey(new Date(at))); }
+  S.history.push(h);
 }
+/** Macht das letzte Erledigen rückgängig. Frühere Einträge (z. B. vergangene Monate) bleiben im Verlauf. */
 export function undone(id){
   const f = find(id); if (!f) return;
-  f.n.done = false; delete f.n.doneAt; S.history = S.history.filter(h => h.id !== id);
+  f.n.done = false; delete f.n.doneAt;
+  let i = -1; S.history.forEach((h, j) => { if (h.id === id) i = j; });
+  if (i < 0) return;
+  const [h] = S.history.splice(i, 1);
+  if (f.n.repeat && h.due) f.n.due = h.due;
+}
+/** Ist das der Verlaufseintrag, der sich gerade rückgängig machen lässt? */
+export function canRestore(h){
+  const f = find(h.id); if (!f || !f.n.done) return false;
+  for (let j = S.history.length - 1; j >= 0; j--) if (S.history[j].id === h.id) return S.history[j] === h;
+  return false;
+}
+
+/* ---------- Wiederkehrende Aufgaben ---------- */
+/** Setzt die Regel (oder entfernt sie mit null). Der erste Termin ist ohne Angabe heute. */
+export function setRepeat(id, rule){
+  const n = find(id)?.n; if (!n || n.type !== 'task') return;
+  const r = normRepeat(rule);
+  if (!r) { delete n.repeat; delete n.due; return; }
+  const due = n.due || curDay();
+  if (r.unit === 'month' || r.unit === 'year') r.day = +due.slice(8);
+  else delete r.day;
+  n.repeat = r; n.due = due;
+}
+/** Neuer nächster Termin; Monats- und Jahresregeln halten sich danach an diesen Tag im Monat */
+export function setDue(id, due){
+  const n = find(id)?.n; if (!n || !n.repeat) return;
+  n.due = due;
+  if (n.repeat.unit === 'month' || n.repeat.unit === 'year') n.repeat.day = +due.slice(8);
+}
+/** „Diesmal auslassen“: springt zum nächsten Termin, ohne Eintrag im Verlauf */
+export function skipOccurrence(id, today = curDay()){
+  const n = find(id)?.n; if (!n || !n.repeat) return;
+  n.due = nextDue(n.repeat, n.due, today);
+}
+/** Beim Tageswechsel: erledigte wiederkehrende Aufgaben werden wieder offen, mit frischen Unteraufgaben */
+export function renewRecurring(){
+  let n = 0;
+  walk(t => {
+    if (t.type !== 'task' || !t.repeat || !t.done) return;
+    t.done = false; delete t.doneAt;
+    t.children.forEach(c => { c.done = false; delete c.doneAt; });
+    n++;
+  });
+  return n;
 }
 export const KEEP_DONE_DAYS = 14;
 /**
@@ -69,6 +125,7 @@ export function purgeDone(now = Date.now()){
     for (let i = list.length - 1; i >= 0; i--) {
       const it = list[i];
       if (it.type === 'section') { prune(it.children); continue; }
+      if (it.repeat) continue;   // wiederkehrend: Aufgabe und Checkliste bleiben
       if (old(it) && !it.children.some(c => !c.done)) { list.splice(i, 1); n++; continue; }
       it.children = it.children.filter(c => { const o = old(c); if (o) n++; return !o; });
     }

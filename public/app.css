@@ -342,3 +342,30 @@ input.pedit{flex:0 1 260px;min-width:120px;border-bottom:1.5px solid var(--focus
 .p-del{opacity:0}
 .p-head:hover .p-del{opacity:1}
 .p-del:hover{color:var(--danger);background:#fdecec}
+
+/* Wiederkehrende Aufgaben: ruhend gedimmt, fällig mit blauem Hinweis */
+.chip.rep{gap:3px;padding-left:6px}
+.chip.rep.due{background:var(--focus-soft);color:#0861c4;border-color:#cfe3ff}
+.rep-ic{display:inline-flex;color:var(--muted)}
+.row.resting .title,.row.resting .check,.item.resting .subs .row .title,.item.resting .subs .row .check{opacity:.5;transition:opacity .15s}
+.row.resting:hover .title,.row.resting:hover .check,.row.resting.focus .title,.row.resting.focus .check,
+.item.resting .subs .row:hover .title,.item.resting .subs .row:hover .check,.item.resting .subs .row.focus .title,.item.resting .subs .row.focus .check{opacity:.85}
+.pick.resting .pt{opacity:.55}
+.pick .chip.rep{margin-left:8px;vertical-align:1px}
+.lo-h{margin:20px 0 8px;font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:6px}
+.lo-h:first-of-type{margin-top:0}
+.lo .meta svg{vertical-align:-2px}
+.d-rep{margin-bottom:22px}
+.d-sel{height:34px;min-width:210px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font:inherit;font-size:14px;color:var(--text);background:var(--surface-2);outline:none}
+.d-sel:focus,.d-due input:focus{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-soft)}
+.d-rep-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px}
+.d-due{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.d-due input{height:32px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font:inherit;font-size:14px;color:var(--text);background:#fff;outline:none}
+.d-rep-sum{display:flex;align-items:center;gap:6px;margin:10px 0 0;font-size:13px;color:var(--muted)}
+.d-rep-sum svg{flex:none}
+.d-rep-hint{margin:8px 0 0;font-size:12.5px;color:var(--faint)}
+@media (max-width:760px){
+  .lo{flex-wrap:wrap}
+  .lo .seg{margin-left:auto}
+  .plan-hint{display:none}
+}

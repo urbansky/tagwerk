@@ -3,11 +3,13 @@ import { S, snapshot, migrate, applyData } from './state.js';
 import {
   COLORS, find, path, isLeaf, openCount, getList, todayCounts, newProject, newSection, insertAfter, appendTask,
   firstInSection, markDone, undone, applyTitle, indent, outdent, moveItem, reorder, deleteNode,
-  removeWithUndo, restoreDeleted, lastDeleted, newTask, renameProject
+  removeWithUndo, restoreDeleted, lastDeleted, newTask, renameProject,
+  isResting, leafIds, canRestore, setRepeat, setDue, skipOccurrence
 } from './model.js';
 import { parseNotes, looksLikeSection, toModel } from './parser.js';
 import { htmlToNotes, looksStructured } from './htmlimport.js';
-import { dateStr, rollover, shouldPromptPlan, msToMidnight } from './day.js';
+import { dateStr, rollover, shouldPromptPlan, msToMidnight, dueTasks, dayKey } from './day.js';
+import { describe, dueLabel, REPEAT_CHOICES, choiceKey, isDayKey } from './repeat.js';
 import { status, onStatus, load, scheduleSave, flush, requestPersist, acquireLock, takeOver, current } from './store.js';
 import { fs, supported as fsSupported, onFileStatus, init as fsInit, chooseFolder, renewPermission, forgetFolder, resolveConflict, recheck } from './filesync.js';
 import { summarize } from './syncrules.js';
@@ -38,6 +40,7 @@ const I = {
   up:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6M3 13.5h10"/></svg>`,
   folder:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 013.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0114 6v5.5a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 11.5z"/></svg>`,
   trash:`<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M6.5 4.5V3a1 1 0 011-1h1a1 1 0 011 1v1.5M4 4.5l.7 8.6a1 1 0 001 .9h4.6a1 1 0 001-.9l.7-8.6M6.7 7v4.5M9.3 7v4.5"/></svg>`,
+  rep:`<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 7.2A5.4 5.4 0 0 1 12.2 4.4L13.4 5.6M13.4 2.4v3.2h-3.2M13.4 8.8A5.4 5.4 0 0 1 3.8 11.6L2.6 10.4M2.6 13.6v-3.2h3.2"/></svg>`,
   keyb:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1.5" y="4" width="13" height="8.5" rx="1.8"/><path d="M4.5 7h.01M7 7h.01M9.5 7h.01M12 7h.01M5 10h6"/></svg>`,
 };
 const sunArt = () => `<div class="sunart"><div class="rays">${[0,1,2,3,4,5,6,7].map(i=>`<i style="transform:rotate(${i*45}deg)"></i>`).join('')}</div><div class="core"></div></div>`;
@@ -45,6 +48,16 @@ const sunArt = () => `<div class="sunart"><div class="rays">${[0,1,2,3,4,5,6,7].
 /* ---------- Helpers ---------- */
 const $ = (s, el=document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today = () => S.day || dayKey();
+/** „morgen“ bzw. „am Do., 24. Dez.“ */
+const onDay = due => { const l = dueLabel(due, today()); return l === 'heute' || l === 'morgen' ? l : 'am ' + l; };
+/** Hinweis an wiederkehrenden Aufgaben: nächster Termin (ruhend/erledigt) oder „fällig“ */
+function repChip(n){
+  if (!n.repeat) return '';
+  const tip = esc(describe(n.repeat, n.due));
+  if (n.done || isResting(n)) return `<span class="chip rep" title="${tip}">${I.rep}${esc(dueLabel(n.due, today()))}</span>`;
+  return `<span class="chip rep due" title="${tip}">${I.rep}fällig</span>`;
+}
 
 
 function fmtTitle(s){
@@ -177,10 +190,10 @@ function renderToday(){
       <button class="btn sun lg" data-act="import">${I.paste} Aus Notizen importieren</button> <button class="btn lg" data-act="newproject">${I.plus} Neues Projekt</button>
       ${fsSupported && fs.state === 'none' ? `<p class="small muted" style="margin-top:18px">Schon einen Tagwerk-Ordner? <button class="linkbtn" data-act="fs-choose">Ordner öffnen …</button></p>` : ''}</div>`;
   } else if (!total) {
-    const lo = S.leftovers.length;
+    const lo = S.leftovers.length, due = dueTasks().length;
     body = `<div class="empty">${sunArt()}
       <h3>${S.planned ? 'Heute ist noch nichts geplant.' : 'Guten Morgen! Was nimmst du dir heute vor?'}</h3>
-      <p>${lo ? `<b>${lo} Aufgaben von gestern</b> warten auf deine Entscheidung. ` : ''}Such dir aus deinen Projekten die Aufgaben für heute heraus.</p>
+      <p>${lo ? `<b>${lo} Aufgaben von gestern</b> warten auf deine Entscheidung. ` : ''}${due ? `<b>${due} wiederkehrende ${due === 1 ? 'Aufgabe ist' : 'Aufgaben sind'} fällig.</b> ` : ''}Such dir aus deinen Projekten die Aufgaben für heute heraus.</p>
       <button class="btn sun lg" data-act="plan">${I.sun} Tag planen <kbd>P</kbd></button></div>`;
   } else {
     body = `<div class="t-list" id="todayList">${S.today.map(todayRow).join('')}</div>`
@@ -202,7 +215,7 @@ function todayRow(id){
     <span class="handle" data-h="today">${I.grip}</span>
     <button class="check" data-act="toggle" data-id="${id}" title="Erledigt (Leertaste)">${I.check}</button>
     <div class="title" data-act="edit" data-key="${key}">${titleHTML(n, key)}
-      <div class="meta"><span class="ctx"><span class="dot" style="background:${f.p.color}"></span>${esc(path(f).join(' › '))}</span>${n.note ? `<span class="note-prev">${I.note}Notiz</span>` : ''}</div></div>
+      <div class="meta"><span class="ctx"><span class="dot" style="background:${f.p.color}"></span>${esc(path(f).join(' › '))}</span>${n.repeat ? `<span class="rep-ic" title="${esc(describe(n.repeat, n.due))}">${I.rep}</span>` : ''}${n.note ? `<span class="note-prev">${I.note}Notiz</span>` : ''}</div></div>
     <div class="acts"><button class="ibtn" data-act="detail" data-id="${id}" title="Details (O)">${I.info}</button></div>
     <button class="ibtn sunbtn on" data-act="today" data-id="${id}" title="Aus Heute entfernen (T)">${I.sunFill}</button>
   </div>`;
@@ -245,16 +258,17 @@ function sectionBlock(s){
   </div>`;
 }
 function taskBlock(t){
-  if (t.done) return '';
+  if (t.done && !t.repeat) return '';   // erledigte wiederkehrende bleiben gedimmt mit dem nächsten Termin stehen
   const subs = t.children.filter(c => !c.done);
-  return `<div class="item" data-id="${t.id}">${row(t)}${subs.length ? `<div class="subs" data-list="${t.id}">${subs.map(s => `<div class="item sub" data-id="${s.id}">${row(s)}</div>`).join('')}</div>` : ''}</div>`;
+  return `<div class="item ${isResting(t) ? 'resting' : ''}" data-id="${t.id}">${row(t)}${subs.length ? `<div class="subs" data-list="${t.id}">${subs.map(s => `<div class="item sub" data-id="${s.id}">${row(s)}</div>`).join('')}</div>` : ''}</div>`;
 }
 function row(n){
   const key = 'p:' + n.id, leaf = isLeaf(n), inT = S.today.includes(n.id);
   const subDone = n.children.filter(c => c.done).length;
   const noteLine = n.note ? n.note.split('\n')[0].replace(/^•\s*/, '') : '';
-  const meta = (n.children.length ? `<span class="chip">${subDone}/${n.children.length}</span>` : '') + (noteLine ? `<span class="note-prev">${I.note}${esc(noteLine)}${n.note.includes('\n') ? ' …' : ''}</span>` : '');
-  return `<div class="row ${n.important ? 'imp' : ''} ${inT ? 'in-today' : ''} ${S.focus === key ? 'focus' : ''} ${S.flash.has(n.id) ? 'flash' : ''}" data-row="${key}" data-id="${n.id}">
+  const rest = n.repeat && (n.done || isResting(n));
+  const meta = repChip(n) + (n.children.length && !n.done ? `<span class="chip">${subDone}/${n.children.length}</span>` : '') + (noteLine ? `<span class="note-prev">${I.note}${esc(noteLine)}${n.note.includes('\n') ? ' …' : ''}</span>` : '');
+  return `<div class="row ${n.important ? 'imp' : ''} ${inT ? 'in-today' : ''} ${rest ? 'resting' : ''} ${n.done ? 'done' : ''} ${S.focus === key ? 'focus' : ''} ${S.flash.has(n.id) ? 'flash' : ''}" data-row="${key}" data-id="${n.id}">
     <span class="handle" data-h="item">${I.grip}</span>
     <button class="check" data-act="toggle" data-id="${n.id}" title="Erledigt (Leertaste)">${I.check}</button>
     <div class="title" data-act="edit" data-key="${key}">${titleHTML(n, key)}${meta ? `<div class="meta">${meta}</div>` : ''}</div>
@@ -311,10 +325,11 @@ function toggleDone(id, btn){
   const rowEl = btn && btn.closest('.row');
   const inToday = rowEl && rowEl.classList.contains('today-row');
   if (rowEl) rowEl.classList.add('checking');
-  if (rowEl && !inToday) { const block = rowEl.closest('.item'); if (block) collapseOut(block); }
+  if (rowEl && !inToday && !f.n.repeat) { const block = rowEl.closest('.item'); if (block) collapseOut(block); }
   const before = todayCounts();
   setTimeout(() => {
     markDone(id);
+    const next = f.n.repeat ? ` · ${I.rep} wieder ${esc(onDay(f.n.due))}` : '';
     const after = todayCounts();
     const allDone = after.total && after.done === after.total && before.done < before.total && S.today.includes(id);
     S.celebrate = !!allDone; render();
@@ -322,7 +337,7 @@ function toggleDone(id, btn){
       const r = $('.ring'); const b = r ? r.getBoundingClientRect() : { left: innerWidth / 2, top: 120, width: 0, height: 0 };
       confetti(b.left + b.width / 2, b.top + b.height / 2);
       toast('🎉 Alles für heute erledigt!', id);
-    } else toast(`<span>${CHEERS[Math.floor(Math.random() * CHEERS.length)]} <span style="opacity:.6">– ${esc(f.n.title.slice(0, 48))}${f.n.title.length > 48 ? '…' : ''}</span></span>`, id);
+    } else toast(`<span>${CHEERS[Math.floor(Math.random() * CHEERS.length)]} <span style="opacity:.6">– ${esc(f.n.title.slice(0, 48))}${f.n.title.length > 48 ? '…' : ''}${next}</span></span>`, id);
   }, inToday ? 420 : 640);
 }
 function collapseOut(el){
@@ -404,44 +419,61 @@ function renderOv(){
 
 /* Tag planen */
 function openPlan(step){
-  S.ui.plan = { step: step || (S.leftovers.length ? 1 : 2), picks: [...S.today], dec: {}, q: '', f: null, newId: null };
+  const due = dueTasks();
+  S.ui.plan = { step: step || (S.leftovers.length || due.length ? 1 : 2), picks: [...S.today], dec: {}, due, q: '', f: null, newId: null };
   openOv('plan');
 }
+const hasStep1 = () => S.leftovers.length > 0 || S.ui.plan.due.length > 0;
+function step1Name(){
+  const lo = S.leftovers.length > 0, due = S.ui.plan.due.length > 0;
+  return lo && due ? 'Gestern &amp; fällig' : due ? 'Fällig' : 'Von gestern';
+}
 function renderPlan(){
-  const P = S.ui.plan, hasLo = S.leftovers.length > 0;
+  const P = S.ui.plan, hasLo = hasStep1();
   return `<div class="scrim"></div><div class="modal plan" role="dialog" aria-label="Tag planen">
     <div class="plan-head">${sunArt()}
       <div><div class="eyebrow">${dateStr()}</div><h2>Guten Morgen! Lass uns deinen Tag planen.</h2></div>
       <span class="spacer"></span>
-      <div class="steps">${hasLo || P.step === 1 ? `<span class="${P.step === 1 ? 'on' : 'ok'}">${P.step === 1 ? '1' : '✓'} · Von gestern</span>` : ''}<span class="${P.step === 2 ? 'on' : ''}">${hasLo ? '2' : '1'} · Aufgaben wählen</span></div>
+      <div class="steps">${hasLo || P.step === 1 ? `<span class="${P.step === 1 ? 'on' : 'ok'}">${P.step === 1 ? '1' : '✓'} · ${step1Name()}</span>` : ''}<span class="${P.step === 2 ? 'on' : ''}">${hasLo ? '2' : '1'} · Aufgaben wählen</span></div>
       <button class="ibtn" data-act="close-ov" title="Schließen (Esc)">${I.x}</button>
     </div>
     <div class="plan-body">${P.step === 1 ? planStep1() : planStep2()}</div></div>`;
 }
 function planStep1(){
-  const P = S.ui.plan;
+  const P = S.ui.plan, lo = S.leftovers.length > 0, due = P.due.length > 0;
+  const btn = (id, v, label, d) => `<button class="${d === v ? (v === 'keep' ? 'on k' : 'on') : ''}" data-act="plan-dec" data-id="${id}" data-v="${v}">${label}</button>`;
+  const item = (id, rep) => { const f = find(id); if (!f) return ''; const d = P.dec[id] || '';
+    const meta = esc(path(f).join(' › ')) + (rep ? ` · ${I.rep} ${esc(describe(f.n.repeat, f.n.due))}` : '');
+    const seg = rep
+      ? btn(id, 'skip', 'Diesmal auslassen', d) + btn(id, 'later', 'Später', d) + btn(id, 'keep', `${I.sunSm} Heute`, d)
+      : btn(id, 'back', 'Zurücklegen', d) + btn(id, 'keep', `${I.sunSm} Heute`, d);
+    return `<div class="lo ${d === 'keep' ? 'keep' : d ? 'back' : ''}"><span class="dot" style="background:${f.p.color}"></span>
+      <div class="title" style="cursor:default"><div>${fmtTitle(f.n.title)}</div><div class="meta">${meta}</div></div>
+      <div class="seg">${seg}</div></div>`; };
+  const lead = lo && due ? 'Gestern ist etwas liegen geblieben, und wiederkehrende Aufgaben sind fällig. Was nimmst du mit in den heutigen Tag?'
+    : due ? 'Diese wiederkehrenden Aufgaben sind fällig. Nimmst du sie mit in den heutigen Tag?'
+    : 'Gestern ist das hier liegen geblieben. Nimmst du es mit in den heutigen Tag – oder legst du es zurück ins Projekt?';
+  const hint = lo && due ? 'Nicht Entschiedenes wird zurückgelegt bzw. bleibt fällig' : due ? 'Nicht Entschiedenes bleibt fällig' : 'Nicht Entschiedenes wird zurückgelegt';
   return `<div class="lo-wrap"><div class="lo-in">
-      <p class="lead">Gestern ist das hier liegen geblieben. Nimmst du es mit in den heutigen Tag – oder legst du es zurück ins Projekt?</p>
-      ${S.leftovers.map(id => { const f = find(id); if (!f) return ''; const d = P.dec[id] || '';
-        return `<div class="lo ${d}"><span class="dot" style="background:${f.p.color}"></span>
-          <div class="title" style="cursor:default"><div>${fmtTitle(f.n.title)}</div><div class="meta">${esc(path(f).join(' › '))}</div></div>
-          <div class="seg"><button class="${d === 'back' ? 'on' : ''}" data-act="plan-dec" data-id="${id}" data-v="back">Zurücklegen</button><button class="${d === 'keep' ? 'on k' : ''}" data-act="plan-dec" data-id="${id}" data-v="keep">${I.sunSm} Heute</button></div></div>`; }).join('')}
+      <p class="lead">${lead}</p>
+      ${lo && due ? `<h4 class="lo-h">Von gestern</h4>` : ''}${S.leftovers.map(id => item(id, false)).join('')}
+      ${due ? `${lo ? `<h4 class="lo-h">${I.rep} Fällig</h4>` : ''}${P.due.map(id => item(id, true)).join('')}` : ''}
     </div></div>
-    <div class="plan-foot"><button class="btn" data-act="plan-keepall">${I.sun} Alle übernehmen</button><span class="spacer"></span><span class="muted small">Nicht Entschiedenes wird zurückgelegt</span><button class="btn primary" data-act="plan-next">Weiter →</button></div>`;
+    <div class="plan-foot"><button class="btn" data-act="plan-keepall">${I.sun} Alle übernehmen</button><span class="spacer"></span><span class="muted small plan-hint">${hint}</span><button class="btn primary" data-act="plan-next">Weiter →</button></div>`;
 }
 function planStep2(){
   return `<div class="plan-grid">
     <div class="pick-col"><div class="search"><input id="planq" placeholder="Aufgaben durchsuchen …   ( / )" autocomplete="off" value="${esc(S.ui.plan.q)}"></div><div class="pick-list" id="pickList"></div></div>
     <div class="day-col"><div class="day-head"><h3>${I.sunFill} Dein Tag</h3><span class="chip sun" id="dayCount"></span></div>
       <div class="day-list" id="dayList"></div>
-      <div class="plan-foot">${S.leftovers.length ? `<button class="btn" data-act="plan-prev">← Zurück</button>` : ''}<span class="spacer"></span><button class="btn sun lg" data-act="plan-start">Tag starten <kbd>⌘↵</kbd></button></div></div>
+      <div class="plan-foot">${hasStep1() ? `<button class="btn" data-act="plan-prev">← Zurück</button>` : ''}<span class="spacer"></span><button class="btn sun lg" data-act="plan-start">Tag starten <kbd>⌘↵</kbd></button></div></div>
   </div>`;
 }
 function renderPick(){
   const P = S.ui.plan, box = $('#pickList'); if (!box) return;
   const st = box.scrollTop, q = (P.q || '').toLowerCase(); let i = 0, html = '';
   const pk = (n, sub) => { const on = P.picks.includes(n.id), idx = i++;
-    return `<div class="pick ${sub ? 'sub' : ''} ${on ? 'on' : ''} ${P.f === idx ? 'focus' : ''}" data-act="plan-pick" data-id="${n.id}" data-prow="${idx}"><span class="pc">${I.checkS}</span><span class="pt">${n.important ? `<span class="star">${I.star}</span>` : ''}${fmtTitle(n.title)}</span></div>`; };
+    return `<div class="pick ${sub ? 'sub' : ''} ${on ? 'on' : ''} ${P.f === idx ? 'focus' : ''} ${isResting(n) ? 'resting' : ''}" data-act="plan-pick" data-id="${n.id}" data-prow="${idx}"><span class="pc">${I.checkS}</span><span class="pt">${n.important ? `<span class="star">${I.star}</span>` : ''}${fmtTitle(n.title)}${repChip(n)}</span></div>`; };
   const match = (n, ctx) => !q || (n.title + ' ' + ctx).toLowerCase().includes(q);
   for (const p of S.projects) {
     let ph = '';
@@ -481,8 +513,17 @@ function planPick(id){
   renderPick(); renderDay();
   if (P.newId === null) { const dl = $('#dayList'); dl.scrollTop = dl.scrollHeight; }
 }
+/** Entscheidung in Schritt 1. „Heute“ bei einer Aufgabe mit offenen Unteraufgaben holt diese in den Tag. */
+function planDecide(id, v){
+  const P = S.ui.plan, f = find(id); if (!f) return;
+  P.dec[id] = v;
+  const ids = leafIds(f.n);
+  if (v === 'keep') ids.forEach(x => { if (!P.picks.includes(x)) P.picks.push(x); });
+  else P.picks = P.picks.filter(x => !ids.includes(x));
+}
 function planStart(){
   const P = S.ui.plan; const added = P.picks.filter(id => !S.today.includes(id));
+  Object.entries(P.dec).forEach(([id, v]) => { if (v === 'skip') skipOccurrence(id); });
   S.today = [...P.picks]; S.leftovers = []; S.planned = true; added.forEach(id => S.flash.add(id));
   const n = S.today.length;
   closeOv();
@@ -548,7 +589,7 @@ function renderHistory(){
     <div class="stats"><div class="stat"><b>${cnt('Heute')}</b><span>heute erledigt</span></div><div class="stat"><b>${cnt('Gestern')}</b><span>gestern</span></div><div class="stat"><b>🔥 ${streak()}</b><span>Tage in Folge</span></div></div>
     <div class="d-body">${[...groups].map(([l, hs]) => `<div class="h-lbl">${l}</div>` + hs.map(h => `<div class="h-row"><span class="hc">${I.checkS}</span>
       <div class="title" style="cursor:default"><div>${fmtTitle(h.title)}</div><div class="meta"><span class="ctx"><span class="dot" style="background:${h.color}"></span>${esc(h.path.join(' › '))}</span><span>${new Date(h.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span></div></div>
-      ${find(h.id) ? `<button class="ibtn" data-act="hist-restore" data-id="${h.id}" title="Wiederherstellen">${I.undo}</button>` : ''}</div>`).join('')).join('') || '<p class="muted">Noch nichts erledigt.</p>'}</div>
+      ${canRestore(h) ? `<button class="ibtn" data-act="hist-restore" data-id="${h.id}" title="Wiederherstellen">${I.undo}</button>` : ''}</div>`).join('')).join('') || '<p class="muted">Noch nichts erledigt.</p>'}</div>
   </aside>`;
 }
 
@@ -565,10 +606,30 @@ function renderDetail(){
       <label class="lbl">Notiz &amp; Links</label>
       <textarea class="d-note" data-f="note" rows="7" placeholder="Notizen, Links, Gedanken …">${esc(n.note || '')}</textarea>
       ${links.length ? `<div class="d-links">${[...new Set(links)].map(l => fmtTitle(l)).join('')}</div>` : '<div style="height:18px"></div>'}
+      ${f.parent ? '' : repeatBlock(n)}
       ${n.children.length ? `<label class="lbl">Unteraufgaben</label>${n.children.map(c => `<div class="d-sub ${c.done ? 'done' : ''}"><span class="mini"></span>${esc(c.title)}</div>`).join('')}` : ''}
     </div>
     <div class="d-foot"><button class="btn danger" data-act="d-del">Aufgabe löschen</button></div>
   </aside>`;
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+function repSummary(n){
+  const state = n.done ? `erledigt, wieder ${onDay(n.due)}` : isResting(n) ? `nächstes Mal ${onDay(n.due)}` : 'jetzt fällig';
+  return `${I.rep}<span>${esc(describe(n.repeat, n.due))} · ${esc(state)}</span>`;
+}
+function repeatBlock(n){
+  const r = n.repeat, key = choiceKey(r);
+  const opts = [['', 'nie'], ...REPEAT_CHOICES];
+  if (r && !opts.some(([k]) => k === key)) opts.push([key, describe({ ...r, from: undefined })]);
+  return `<label class="lbl" for="dRep">Wiederholen</label>
+    <div class="d-rep">
+      <select class="d-sel" id="dRep">${opts.map(([k, t]) => `<option value="${k}" ${k === key ? 'selected' : ''}>${esc(cap(t))}</option>`).join('')}</select>
+      ${r ? `<div class="d-rep-row">
+        <label class="d-due"><span>Nächster Termin</span><input type="date" id="dDue" value="${esc(n.due || '')}" required></label>
+        <div class="seg"><button class="${r.from === 'done' ? '' : 'on'}" data-act="d-from" data-v="due" title="z. B. immer am 1. des Monats">Fester Termin</button><button class="${r.from === 'done' ? 'on' : ''}" data-act="d-from" data-v="done" title="Der nächste Termin zählt ab dem Tag, an dem du sie erledigst">Ab Erledigung</button></div>
+      </div>
+      <p class="d-rep-sum" id="dRepSum">${repSummary(n)}</p>` : `<p class="d-rep-hint">Erledigt kommt die Aufgabe zum nächsten Termin wieder – mit frischen Unteraufgaben.</p>`}
+    </div>`;
 }
 function renderHelp(){
   const r = (k, t) => `<div><span>${t}</span><span>${k.split(' ').map(x => `<kbd>${x}</kbd>`).join('')}</span></div>`;
@@ -645,8 +706,8 @@ document.addEventListener('click', e => {
     // Tag planen
     case 'plan': openPlan(); return;
     case 'plan2': openPlan(2); return;
-    case 'plan-dec': { const P = S.ui.plan; P.dec[d.id] = d.v; if (d.v === 'keep') { if (!P.picks.includes(d.id)) P.picks.push(d.id); } else P.picks = P.picks.filter(x => x !== d.id); renderOv(); return; }
-    case 'plan-keepall': { const P = S.ui.plan; S.leftovers.forEach(id => { P.dec[id] = 'keep'; if (!P.picks.includes(id)) P.picks.push(id); }); renderOv(); return; }
+    case 'plan-dec': { planDecide(d.id, d.v); renderOv(); return; }
+    case 'plan-keepall': { [...S.leftovers, ...S.ui.plan.due].forEach(id => planDecide(id, 'keep')); renderOv(); return; }
     case 'plan-next': S.ui.plan.step = 2; renderOv(); return;
     case 'plan-prev': S.ui.plan.step = 1; renderOv(); return;
     case 'plan-pick': planPick(d.id); return;
@@ -658,6 +719,7 @@ document.addEventListener('click', e => {
     // Details
     case 'd-imp': { const f = find(S.ui.detail); f.n.important = !f.n.important; renderOv(); render(); return; }
     case 'd-today': toggleToday(S.ui.detail); renderOv(); return;
+    case 'd-from': { const n = find(S.ui.detail)?.n; if (n && n.repeat) { if (d.v === 'done') n.repeat.from = 'done'; else delete n.repeat.from; } renderOv(); render(); return; }
     case 'd-del': { const id = S.ui.detail; closeOv(); deleteWithUndo(id); render(); return; }
   }
 });
@@ -666,6 +728,19 @@ document.addEventListener('input', e => {
   if (t.id === 'impText') { S.ui.imp.parsed = parseNotes(t.value); S.ui.imp.over = {}; renderImpPreview(); }
   else if (t.id === 'planq') { S.ui.plan.q = t.value; S.ui.plan.f = null; renderPick(); }
   else if (t.dataset.f && S.ui.detail) { const f = find(S.ui.detail); f.n[t.dataset.f] = t.dataset.f === 'title' ? t.value.replace(/\n/g, ' ') : t.value; scheduleSave(); }
+});
+// Wiederholen in der Detailansicht
+document.addEventListener('change', e => {
+  const t = e.target, id = S.ui.detail; if (!id || S.ui.ov !== 'detail') return;
+  if (t.id === 'dRep') {
+    const [unit, every] = t.value.split(':'), from = find(id)?.n.repeat?.from;
+    setRepeat(id, t.value ? { unit, every: +every, from } : null);
+    renderOv(); render();
+  } else if (t.id === 'dDue' && isDayKey(t.value)) {
+    // Nicht neu zeichnen – sonst verliert das Datumsfeld beim Tippen den Fokus
+    setDue(id, t.value); render();
+    const sum = $('#dRepSum'); if (sum) sum.innerHTML = repSummary(find(id).n);
+  }
 });
 // Einfügen im Import: formatierte Zwischenablage (Notizen) bevorzugen – Einrückung und Fett sind dort zuverlässig
 document.addEventListener('paste', e => {

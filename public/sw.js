@@ -5,7 +5,7 @@ const CACHE = 'tagwerk';
 const SHELL = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
   'js/main.js', 'js/ui.js', 'js/state.js', 'js/model.js', 'js/parser.js', 'js/day.js',
-  'js/store.js', 'js/filesync.js', 'js/syncrules.js', 'js/pwa.js', 'js/htmlimport.js',
+  'js/repeat.js', 'js/store.js', 'js/filesync.js', 'js/syncrules.js', 'js/pwa.js', 'js/htmlimport.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'
 ];
 const TIMEOUT = 3000;

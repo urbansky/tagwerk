@@ -1,6 +1,8 @@
 /* Zentraler Zustand: gespeicherte Daten + flüchtiger UI-Zustand */
+import { normRepeat, isDayKey } from './repeat.js';
 
-export const SCHEMA = 1;
+// 2: Aufgaben können wiederkehren (repeat, due). Ältere Versionen lehnen solche Daten ab, statt die Regeln stillschweigend zu verlieren.
+export const SCHEMA = 2;
 
 // Diese Felder werden gespeichert, alles andere in S ist nur UI-Zustand.
 const DATA_KEYS = ['projects', 'today', 'leftovers', 'history', 'planned', 'day', 'prompted'];
@@ -39,7 +41,13 @@ export function migrate(raw){
 
 const arr = v => Array.isArray(v) ? v : [];
 function normTask(t){
-  return { type: 'task', id: String(t.id), title: String(t.title ?? ''), important: !!t.important, note: String(t.note ?? ''), done: !!t.done, ...(t.doneAt ? { doneAt: +t.doneAt } : {}), children: arr(t.children).map(normTask) };
+  const repeat = normRepeat(t.repeat);
+  return {
+    type: 'task', id: String(t.id), title: String(t.title ?? ''), important: !!t.important, note: String(t.note ?? ''), done: !!t.done,
+    ...(t.doneAt ? { doneAt: +t.doneAt } : {}),
+    ...(repeat ? { repeat, ...(isDayKey(t.due) ? { due: t.due } : {}) } : {}),
+    children: arr(t.children).map(normTask)
+  };
 }
 function normalize(d){
   const projects = arr(d.projects).map(p => ({
@@ -50,7 +58,7 @@ function normalize(d){
   }));
   return {
     projects, today: arr(d.today).map(String), leftovers: arr(d.leftovers).map(String),
-    history: arr(d.history).filter(h => h && h.id && h.at),
+    history: arr(d.history).filter(h => h && h.id && h.at).map(h => { const { due, ...rest } = h; return isDayKey(due) ? h : rest; }),
     planned: !!d.planned, day: d.day || null, prompted: d.prompted || null
   };
 }

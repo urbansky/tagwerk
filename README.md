@@ -23,7 +23,8 @@ npm test        # node --test
 | `public/js/state.js` | Zustand, Speicherformat (Schema-Version) und Migrationen |
 | `public/js/model.js` | Datenmodell: Projekte → Abschnitte → Aufgaben → Unteraufgaben |
 | `public/js/parser.js` | Import aus der Notizen-App bzw. Markdown |
-| `public/js/day.js` | Tageswechsel, Reste von gestern, automatisches „Tag planen“ |
+| `public/js/day.js` | Tageswechsel, Reste von gestern, fällige wiederkehrende Aufgaben, automatisches „Tag planen“ |
+| `public/js/repeat.js` | Wiederkehrende Aufgaben: Regeln, nächster Termin, Texte |
 | `public/js/store.js` | Speicherung in IndexedDB, Schreibsperre für mehrere Fenster |
 | `public/js/filesync.js` | Speicherordner: `tagwerk.json`, Tagessicherungen, Abgleich |
 | `public/js/syncrules.js` | Regeln für den Abgleich Browser ⇄ Datei (testbar ohne DOM) |
@@ -50,6 +51,7 @@ Netlify ist mit diesem Repository verbunden, `netlify.toml` setzt `publish = "pu
 - [x] **M2** – Speicherordner mit `tagwerk.json` und täglichen Sicherungen
 - [x] **M3** – PWA (Manifest, Service Worker, Dock-Badge, Dock-Menü), `netlify.toml`
 - [x] **M4** – Import aus formatierter Zwischenablage (HTML aus Notizen), Projekte umbenennen und löschen, erledigte Aufgaben nach 14 Tagen aus den Projekten räumen (im Verlauf bleiben sie)
+- [x] **M5** – Wiederkehrende Aufgaben (täglich bis jährlich, fester Termin oder ab Erledigung), fällige werden beim Planen vorgeschlagen
 
 ## Lizenz
 
