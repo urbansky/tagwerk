@@ -1,6 +1,7 @@
 {
   "name": "tagwerk",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Aufgaben nach Projekten – und jeden Morgen der Plan für heute.",
   "scripts": {
