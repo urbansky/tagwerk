@@ -63,6 +63,8 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .t-foot{padding:0 14px 14px}
 .today .row{padding:10px 12px;font-size:16px}
 .today .row .meta{font-size:12.5px}
+/* Kreis mittig zu den Großbuchstaben der ersten Zeile (16px-Schrift braucht 1px mehr als 15px) */
+.today .row .check{margin-top:1px}
 
 .empty{position:relative;text-align:center;padding:4px 24px 30px}
 .empty h3{margin:4px 0 6px;font-size:19px;letter-spacing:-.01em}
@@ -87,7 +89,7 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .row.flash,.s-head.flash{animation:flash 1.1s var(--ease)}
 .handle{cursor:grab;color:var(--faint);opacity:0;width:14px;flex:none;display:grid;place-items:center;margin:3px -4px 0 -8px;transition:opacity .12s}
 .row:hover .handle,.s-head:hover .handle,.p-head:hover .handle,.day-item:hover .handle{opacity:1}
-.check{flex:none;width:21px;height:21px;margin-top:1px;border-radius:50%;border:1.7px solid #c7c7cc;display:grid;place-items:center;transition:all .15s;background:#fff}
+.check{flex:none;width:21px;height:21px;margin-top:0;border-radius:50%;border:1.7px solid #c7c7cc;display:grid;place-items:center;transition:all .15s;background:#fff}
 .check:hover{border-color:var(--ok);background:var(--ok-soft)}
 .check svg{width:12px;height:12px;stroke:#fff;stroke-width:2.6;fill:none;opacity:0;transform:scale(.3);transition:all .22s var(--ease)}
 .done .check,.checking .check{background:var(--ok);border-color:var(--ok)}
