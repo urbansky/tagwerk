@@ -361,4 +361,46 @@ input.pedit{flex:0 1 260px;min-width:120px;border-bottom:1.5px solid var(--focus
   .lo{flex-wrap:wrap}
   .lo .seg{margin-left:auto}
   .plan-hint{display:none}
+  .m-foot{flex-wrap:wrap;gap:10px}
+  .m-foot>.muted{flex-basis:100%}
+  .m-foot>.spacer{display:none}
+  .m-foot .btn.primary{flex:1 1 100%;justify-content:center;min-width:0}
+}
+
+/* ---------- Touch (Handy, Tablet) ---------- */
+.touch-only{display:none}
+html{-webkit-tap-highlight-color:transparent}
+.handle{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+.d-toggles,.d-arrange{flex-wrap:wrap}
+.d-arrange{display:flex;gap:8px;margin:-8px 0 20px}
+.d-arrange .tg{max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block;line-height:30px}
+/* Sicherer Bereich bei installierter App (Notch, Home-Indikator) */
+.top{padding-top:env(safe-area-inset-top)}
+.top-in,.wrap{padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right))}
+.wrap{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+.d-foot{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.m-foot,.plan-foot{padding-bottom:max(14px,env(safe-area-inset-bottom))}
+.drawer{padding-top:env(safe-area-inset-top)}
+.modal{padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+.toast{bottom:calc(26px + env(safe-area-inset-bottom))}
+@media (hover:none){
+  /* Ohne Maus gibt es kein Hover – Bedienelemente immer zeigen */
+  .acts,.sunbtn,.handle,.p-del{opacity:1}
+  .sunbtn:not(.on),.p-del,.handle{color:#b8b8bd}
+  .kb-only,.btn kbd,.toast kbd{display:none}
+  .touch-only{display:inline}
+}
+@media (pointer:coarse){
+  /* Größere Touch-Ziele */
+  .ibtn{width:36px;height:36px}
+  .handle{width:24px;margin:0 -6px 0 -10px;align-self:stretch;place-items:start center;padding-top:3px}
+  .p-head .handle,.s-head .handle{place-items:center;padding-top:0}
+  .check{position:relative}
+  .check::after{content:"";position:absolute;inset:-10px}
+  .row{gap:8px;padding-right:4px}
+  .row .acts,.row .sunbtn,.row .ibtn.ghost{margin-top:-7px;margin-bottom:-7px}
+  .tg{height:38px}
+  .seg button{height:36px}
+  /* iOS zoomt in Eingabefelder unter 16px hinein */
+  input,textarea,select,.search input,.imp-left textarea,.d-note,.d-due input,.row .title,.s-head,.s-head .edit{font-size:16px}
 }

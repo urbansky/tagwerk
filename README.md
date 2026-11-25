@@ -34,6 +34,7 @@ Tagwerk läuft komplett im Browser. Es gibt keinen Server und keine Konten. Dein
 - **Speicherordner** (z. B. in iCloud Drive) mit `tagwerk.json`, täglichen Sicherungen der letzten 30 Tage und Abgleich mit Konfliktauflösung (siehe [Speicherung](#speicherung)).
 - **Strenge Content Security Policy:** nur eigene Skripte aus `/js/`, keine Inline-Skripte. Ein Test sichert das ab.
 - **Versioniertes Speicherformat** mit Migrationen.
+- **Auch mit dem Finger bedienbar:** Auf Touch-Geräten sind alle Knöpfe sichtbar und groß genug, Sortieren geht per Ziehen am Griff, Ein- und Ausrücken über die Details. Der sichere Bereich (Notch, Home-Indikator) wird freigehalten.
 - **Rücksicht auf „Bewegung reduzieren“:** Animationen werden dann abgeschaltet.
 - **Getestet** mit `node --test`: Parser, Modell, Tageswechsel, Migration, Abgleich und CSP.
 

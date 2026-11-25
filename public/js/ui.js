@@ -77,7 +77,7 @@ function fmtTitle(s){
 let rendering = false, renderCount = 0;
 function render(){
   rendering = true; renderCount++;
-  $('#app').innerHTML = renderTop() + `<main class="wrap">${storageBanner()}${renderToday()}${renderProjects()}<p class="foot"><span id="saveState">${saveStateText()}</span> · <kbd>?</kbd> zeigt alle Tastenkürzel</p></main>`;
+  $('#app').innerHTML = renderTop() + `<main class="wrap">${storageBanner()}${renderToday()}${renderProjects()}<p class="foot"><span id="saveState">${saveStateText()}</span><span class="kb-only"> · <kbd>?</kbd> zeigt alle Tastenkürzel</span></p></main>`;
   rendering = false;
   afterRender();
   scheduleSave();
@@ -288,8 +288,20 @@ function afterRender(){
 }
 
 /* ---------- Drag & Drop ---------- */
+let noClickUntil = 0;
 function sortable(container, sel, kind, onOrder){
   let dragEl = null;
+  const items = () => [...container.children].filter(c => c.matches(sel));
+  const place = y => {
+    const els = items().filter(c => c !== dragEl);
+    const after = els.find(el => { const b = el.getBoundingClientRect(); return y < b.top + b.height / 2; });
+    if (after) { if (after.previousElementSibling !== dragEl) container.insertBefore(dragEl, after); }
+    else if (els.length) { const last = els[els.length - 1]; if (last.nextElementSibling !== dragEl) last.after(dragEl); }
+  };
+  const finish = () => {
+    if (!dragEl) return; dragEl.classList.remove('dragging'); dragEl.draggable = false; dragEl = null;
+    onOrder(items().map(c => c.dataset.id));
+  };
   container.addEventListener('mousedown', e => {
     const h = e.target.closest('.handle'); if (!h || h.dataset.h !== kind) return;
     const it = h.closest(sel); if (it && it.parentElement === container) it.draggable = true;
@@ -300,19 +312,35 @@ function sortable(container, sel, kind, onOrder){
     e.stopPropagation(); dragEl = it; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', '');
     requestAnimationFrame(() => it.classList.add('dragging'));
   });
-  container.addEventListener('dragover', e => {
-    if (!dragEl) return; e.preventDefault();
-    const els = [...container.children].filter(c => c.matches(sel) && c !== dragEl);
-    const after = els.find(el => { const b = el.getBoundingClientRect(); return e.clientY < b.top + b.height / 2; });
-    if (after) { if (after.previousElementSibling !== dragEl) container.insertBefore(dragEl, after); }
-    else if (els.length) { const last = els[els.length - 1]; if (last.nextElementSibling !== dragEl) last.after(dragEl); }
-  });
-  container.addEventListener('dragend', () => {
-    if (!dragEl) return; dragEl.classList.remove('dragging'); dragEl.draggable = false; dragEl = null;
-    onOrder([...container.children].filter(c => c.matches(sel)).map(c => c.dataset.id));
+  container.addEventListener('dragover', e => { if (dragEl) { e.preventDefault(); place(e.clientY); } });
+  container.addEventListener('dragend', finish);
+  // Finger und Stift: HTML5-Drag-and-Drop gibt es dort nicht – mit Pointer Events nachgebaut
+  container.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || dragEl) return;
+    const h = e.target.closest('.handle'); if (!h || h.dataset.h !== kind) return;
+    const it = h.closest(sel); if (!it || it.parentElement !== container) return;
+    e.preventDefault();
+    dragEl = it; it.classList.add('dragging');
+    let y = e.clientY, raf = 0;
+    const scroll = () => {   // am oberen bzw. unteren Rand mitscrollen
+      const edge = 70, v = y < edge ? -(edge - y) / 4 : y > innerHeight - edge ? (y - innerHeight + edge) / 4 : 0;
+      if (v) { scrollBy(0, v); place(y); }
+      raf = requestAnimationFrame(scroll);
+    };
+    raf = requestAnimationFrame(scroll);
+    const move = ev => { if (ev.pointerId === e.pointerId) { y = Math.max(0, Math.min(innerHeight, ev.clientY)); place(y); } };
+    const up = ev => {
+      if (ev.pointerId !== e.pointerId) return;
+      cancelAnimationFrame(raf);
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+      noClickUntil = Date.now() + 400;   // der Tipp auf den Griff soll nicht noch Projekt auf-/zuklappen
+      finish();
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
   });
 }
 document.addEventListener('mouseup', () => document.querySelectorAll('[draggable="true"]').forEach(el => { if (!el.classList.contains('dragging')) el.draggable = false; }));
+document.addEventListener('click', e => { if (Date.now() < noClickUntil) { e.stopPropagation(); e.preventDefault(); } }, true);
 function reorderList(listId, ids){ reorder(listId, ids); render(); }
 
 /* ---------- Aktionen ---------- */
@@ -533,12 +561,12 @@ function planStart(){
 function renderImport(){
   const m = S.ui.imp.mode;
   return `<div class="scrim"></div><div class="modal imp" role="dialog" aria-label="Aus Notizen importieren">
-    <div class="m-head"><div><h2>Aus Notizen importieren</h2><p class="muted">Notiz öffnen, alles markieren (⌘A) und kopieren (⌘C), dann links einfügen. Überschriften werden zu <b>Projekten</b>, Punkte zu <b>Aufgaben</b>, eingerückte Punkte zu <b>Unteraufgaben</b>. Fett markierte Punkte werden als <b>wichtig</b> markiert.</p></div><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
+    <div class="m-head"><div><h2>Aus Notizen importieren</h2><p class="muted"><span class="kb-only">Notiz öffnen, alles markieren (⌘A) und kopieren (⌘C), dann links einfügen.</span><span class="touch-only">Notiz öffnen, alles markieren und kopieren, dann ins Textfeld einfügen.</span> Überschriften werden zu <b>Projekten</b>, Punkte zu <b>Aufgaben</b>, eingerückte Punkte zu <b>Unteraufgaben</b>. Fett markierte Punkte werden als <b>wichtig</b> markiert.</p></div><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
     <div class="imp-grid">
       <div class="imp-left"><textarea id="impText" placeholder="Hier einfügen …" spellcheck="false"></textarea></div>
       <div class="imp-prev" id="impPrev"></div>
     </div>
-    <div class="m-foot"><span class="muted small">Klick auf <span class="badge sec">Abschnitt</span> / <span class="badge task">Aufgabe</span> wechselt die Art.</span><span class="spacer"></span>
+    <div class="m-foot"><span class="muted small"><span class="kb-only">Klick</span><span class="touch-only">Tipp</span> auf <span class="badge sec">Abschnitt</span> / <span class="badge task">Aufgabe</span> wechselt die Art.</span><span class="spacer"></span>
       <div class="seg"><button class="${m === 'replace' ? 'on' : ''}" data-act="imp-mode" data-v="replace">Ersetzen</button><button class="${m === 'append' ? 'on' : ''}" data-act="imp-mode" data-v="append">Hinzufügen</button></div>
       <button class="btn primary" data-act="imp-do" id="impBtn" disabled>Importieren</button></div>
   </div>`;
@@ -601,6 +629,7 @@ function renderDetail(){
     <div class="d-body">
       <textarea class="d-title" data-f="title" rows="2">${esc(n.title)}</textarea>
       <div class="d-toggles"><button class="tg ${n.important ? 'on imp' : ''}" data-act="d-imp">${I.star} Wichtig</button>${leaf ? `<button class="tg ${inT ? 'on sun' : ''}" data-act="d-today">${I.sun} Für heute</button>` : ''}</div>
+      ${arrangeBlock(f)}
       <label class="lbl">Notiz &amp; Links</label>
       <textarea class="d-note" data-f="note" rows="7" placeholder="Notizen, Links, Gedanken …">${esc(n.note || '')}</textarea>
       ${links.length ? `<div class="d-links">${[...new Set(links)].map(l => fmtTitle(l)).join('')}</div>` : '<div style="height:18px"></div>'}
@@ -609,6 +638,15 @@ function renderDetail(){
     </div>
     <div class="d-foot"><button class="btn danger" data-act="d-del">Aufgabe löschen</button></div>
   </aside>`;
+}
+/** Ein- und Ausrücken ohne Tastatur (⇥ / ⇧⇥ beim Bearbeiten) */
+function arrangeBlock(f){
+  const n = f.n, prev = f.parent ? null : f.list.slice(0, f.list.indexOf(n)).reverse().find(x => !x.done);
+  const btns = [];
+  if (prev && !n.children.length) btns.push(`<button class="tg" data-act="d-indent" title="Einrücken (⇥ beim Bearbeiten)">${prev.type === 'section' ? `In „${esc(prev.title || 'Abschnitt')}“ einordnen` : `Unteraufgabe von „${esc(prev.title || 'Neue Aufgabe')}“`}</button>`);
+  if (f.parent) btns.push(`<button class="tg" data-act="d-outdent" title="Ausrücken (⇧⇥ beim Bearbeiten)">Zur eigenen Aufgabe machen</button>`);
+  else if (f.section) btns.push(`<button class="tg" data-act="d-outdent" title="Ausrücken (⇧⇥ beim Bearbeiten)">Aus „${esc(f.section.title || 'Abschnitt')}“ lösen</button>`);
+  return btns.length ? `<div class="d-arrange">${btns.join('')}</div>` : '';
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 function repSummary(n){
@@ -716,6 +754,8 @@ document.addEventListener('click', e => {
     case 'd-imp': { const f = find(S.ui.detail); f.n.important = !f.n.important; renderOv(); render(); return; }
     case 'd-today': toggleToday(S.ui.detail); renderOv(); return;
     case 'd-from': { const n = find(S.ui.detail)?.n; if (n && n.repeat) { if (d.v === 'done') n.repeat.from = 'done'; else delete n.repeat.from; } renderOv(); render(); return; }
+    case 'd-indent': { const msg = indent(S.ui.detail); if (msg) toast(msg); renderOv(); render(); return; }
+    case 'd-outdent': outdent(S.ui.detail); renderOv(); render(); return;
     case 'd-del': { const id = S.ui.detail; closeOv(); deleteWithUndo(id); render(); return; }
   }
 });
