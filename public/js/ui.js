@@ -13,7 +13,7 @@ import { describe, dueLabel, REPEAT_CHOICES, choiceKey, isDayKey } from './repea
 import { status, onStatus, load, scheduleSave, flush, requestPersist, acquireLock, takeOver, current } from './store.js';
 import { fs, supported as fsSupported, onFileStatus, init as fsInit, chooseFolder, renewPermission, forgetFolder, resolveConflict, recheck } from './filesync.js';
 import { summarize } from './syncrules.js';
-import { canInstall, install, isApp, onInstallChange, setBadge } from './pwa.js';
+import { canInstall, install, isApp, platform, onInstallChange, setBadge } from './pwa.js';
 
 /* ---------- Icons ---------- */
 const RAYS = 'M12 2.4v2.3M12 19.3v2.3M2.4 12h2.3M19.3 12h2.3M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M5.2 18.8l1.6-1.6M17.2 6.8l1.6-1.6';
@@ -162,7 +162,7 @@ function renderTop(){
         <button data-act="export">${I.down} Backup exportieren (JSON)</button>
         <button data-act="importjson">${I.up} Backup einspielen (JSON) …</button><hr>
         <button data-act="storage">${I.folder} Speicherort …</button>
-        ${canInstall() ? `<button data-act="install">${I.down} Als App installieren</button>` : ''}<hr>
+        ${isApp() ? '' : `<button data-act="install">${I.down} Als App installieren …</button>`}<hr>
         <button data-act="help">${I.keyb} Tastenkürzel &amp; Hilfe</button>
       </div>` : ''}</div>
   </div></header>`;
@@ -439,6 +439,7 @@ function renderOv(){
   else if (v === 'history') o.innerHTML = renderHistory();
   else if (v === 'detail') o.innerHTML = renderDetail();
   else if (v === 'help') o.innerHTML = renderHelp();
+  else if (v === 'install') o.innerHTML = renderInstall();
   else if (v === 'storage') o.innerHTML = renderStorage();
   else if (v === 'conflict') o.innerHTML = renderConflict();
 }
@@ -676,10 +677,38 @@ function renderHelp(){
     <h4>Allgemein</h4>${r('P', 'Tag planen')}${r('H', 'Verlauf')}${r('?', 'Diese Hilfe')}
     <h4>Tag planen</h4>${r('/', 'Suchen')}${r('↑ ↓', 'Auswählen')}${r('Leertaste', 'Für heute an/aus')}${r('⌘ ↵', 'Tag starten')}
     <h4>Als App</h4>
-    <p class="help-p">${isApp() ? '✓ Tagwerk läuft als installierte App.' : 'In Chrome: Menü <b>⋮ → Streamen, speichern und teilen → Seite als App installieren</b> (oder das Symbol rechts in der Adressleiste).'}
-      Dann hat Tagwerk ein eigenes Fenster, ein Icon im Dock mit der Zahl der heute noch offenen Aufgaben und per Rechtsklick „Tag planen“ und „Neue Aufgabe“.</p>
-    <p class="help-p">Damit Tagwerk morgens direkt da ist: <b>chrome://apps</b> öffnen, Rechtsklick auf Tagwerk und „Beim Anmelden öffnen“ bzw. in den App-Einstellungen „Beim Anmelden starten“ aktivieren.</p>
+    ${isApp() ? '<p class="help-p">✓ Tagwerk läuft als installierte App.</p>' : installHow()}
   </div></div>`;
+}
+/** Anleitung je Gerät – Safari und Firefox haben keinen Installationsdialog, den Tagwerk aufrufen könnte */
+function installHow(){
+  const steps = s => `<ol class="inst">${s.map(x => `<li>${x}</li>`).join('')}</ol>`;
+  switch (platform()) {
+    case 'ios': return steps([
+        'Tippe in der Leiste unten auf <b>⋯</b> und dann auf <b>Teilen</b> (ältere iOS-Versionen: direkt auf das Teilen-Symbol).',
+        'Wähle <b>Zum Home-Bildschirm</b> – eventuell erst unter <b>Mehr</b>.',
+        '<b>Als Web-App öffnen</b> eingeschaltet lassen und auf <b>Hinzufügen</b> tippen.'])
+      + `<p class="help-p">In Chrome auf dem iPhone geht es genauso über das Teilen-Symbol in der Adressleiste.</p>
+        <p class="help-p warn-p"><b>Wichtig:</b> Die App auf dem Home-Bildschirm hat auf iPhone und iPad einen eigenen Speicher. Wenn du hier im Browser schon Aufgaben hast: vorher im Menü <b>Backup exportieren</b> und in der App <b>Backup einspielen</b>.</p>`;
+    case 'android': return steps([
+        'Tippe oben rechts auf <b>⋮</b>.',
+        'Wähle <b>App installieren</b> bzw. <b>Zum Startbildschirm hinzufügen</b>.']);
+    case 'android-firefox': return steps([
+        'Tippe auf <b>⋮</b>.',
+        'Wähle <b>Installieren</b> bzw. <b>Zum Startbildschirm hinzufügen</b>.']);
+    case 'mac-safari': return steps([
+        'Menü <b>Ablage → Zum Dock hinzufügen …</b> (ab macOS Sonoma).'])
+      + '<p class="help-p">Dann startet Tagwerk aus dem Dock in einem eigenen Fenster.</p>';
+    case 'firefox': return '<p class="help-p">Firefox kann Webseiten am Computer nicht als App installieren. Öffne Tagwerk dafür in Chrome, Edge oder Safari.</p>';
+    default: return steps([
+        'Menü <b>⋮ → Streamen, speichern und teilen → Seite als App installieren</b> – oder das Symbol rechts in der Adressleiste.'])
+      + `<p class="help-p">Dann hat Tagwerk ein eigenes Fenster, ein Icon im Dock mit der Zahl der heute noch offenen Aufgaben und per Rechtsklick „Tag planen“ und „Neue Aufgabe“.</p>
+        <p class="help-p">Damit Tagwerk morgens direkt da ist: <b>chrome://apps</b> öffnen, Rechtsklick auf Tagwerk und „Beim Anmelden öffnen“ bzw. in den App-Einstellungen „Beim Anmelden starten“ aktivieren.</p>`;
+  }
+}
+function renderInstall(){
+  return `<div class="scrim" data-act="close-ov"></div><div class="modal small" role="dialog" aria-label="Als App installieren"><div class="m-head"><h2>Als App installieren</h2><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
+    <div class="keys"><p class="help-p">Als App startet Tagwerk mit eigenem Symbol und ohne Browserleisten und funktioniert auch offline.</p>${installHow()}</div></div>`;
 }
 
 /** Aufruf über das Dock-Menü: ?action=plan bzw. ?action=new */
@@ -710,7 +739,7 @@ document.addEventListener('click', e => {
     case 'p-edit': S.ui.pedit = d.id; render(); return;
     case 'p-del': { const p = S.projects.find(x => x.id === d.id); const el = a.closest('.project'); if (el) { el.style.transition = 'opacity .18s ease, transform .18s ease'; el.style.opacity = '0'; el.style.transform = 'translateX(-12px)'; } setTimeout(() => { deleteWithUndo(p.id); render(); }, el ? 180 : 0); return; }
     case 'storage': openOv('storage'); return;
-    case 'install': S.ui.menu = false; render(); install(); return;
+    case 'install': if (canInstall()) { S.ui.menu = false; render(); install(); } else openOv('install'); return;
     case 'fs-choose': fsAction(chooseFolder); return;
     case 'fs-renew': fsAction(renewPermission); return;
     case 'fs-forget': if (confirm(`Ordner „${fs.name}“ nicht mehr verwenden? Die Dateien darin bleiben erhalten, Tagwerk schreibt nur nicht mehr hinein.`)) fsAction(forgetFolder); return;

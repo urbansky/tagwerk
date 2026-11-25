@@ -328,6 +328,9 @@ code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--su
 .cf-card .btn{margin-top:10px}
 .linkbtn{color:var(--focus);text-decoration:underline;text-underline-offset:2px}
 .help-p{font-size:13.5px;color:var(--muted);margin:6px 0 10px;line-height:1.5}
+.inst{margin:8px 0 12px;padding-left:22px;font-size:14.5px;line-height:1.5}
+.inst li{margin:6px 0;padding-left:2px}
+.help-p.warn-p{background:var(--sun-soft);color:var(--sun-ink);border-radius:10px;padding:10px 12px}
 
 /* Projekt umbenennen / löschen */
 .p-name{cursor:text}
