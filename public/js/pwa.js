@@ -22,10 +22,11 @@ export async function install(){
   return outcome === 'accepted';
 }
 
-/* ---------- Zahl am Dock-Icon ---------- */
+/* ---------- Zahl am Dock-Icon und im Tab-Titel ---------- */
 let lastBadge = null;
 export function setBadge(n){
-  if (n === lastBadge || !('setAppBadge' in navigator)) return;
+  if (n === lastBadge) return;
   lastBadge = n;
-  (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  document.title = n ? `(${n}) Tagwerk` : 'Tagwerk';
+  if ('setAppBadge' in navigator) (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
 }
