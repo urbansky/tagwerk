@@ -15,7 +15,7 @@ export const S = {
   prompted: null,   // Datum, an dem „Tag planen“ automatisch geöffnet wurde
   // UI
   focus: null, editing: null, flash: new Set(), pulse: null, lastPct: 0, celebrate: false, opening: null,
-  ui: { ov: null, menu: false, color: null, plan: null, imp: null, detail: null }
+  ui: { ov: null, menu: false, plan: null, imp: null, detail: null }
 };
 
 export function emptyData(){

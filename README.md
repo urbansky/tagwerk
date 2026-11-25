@@ -10,7 +10,7 @@ Tagwerk läuft komplett im Browser. Es gibt keinen Server und keine Konten. Dein
 
 ### Funktional
 
-- **Projekte mit Abschnitten, Aufgaben und Unteraufgaben.** Jedes Projekt hat eine eigene Farbe und lässt sich umbenennen, auf- und zuklappen und löschen. Eine Aufgabe, deren Titel mit „:“ endet, wird zum Abschnitt.
+- **Projekte mit Abschnitten, Aufgaben und Unteraufgaben.** Jedes Projekt lässt sich umbenennen, auf- und zuklappen und löschen. Eine Aufgabe, deren Titel mit „:“ endet, wird zum Abschnitt.
 - **Tag planen:** Jeden Morgen öffnet sich der Plan für heute automatisch. Zuerst entscheidest du über die Reste von gestern (mitnehmen oder zurücklegen), dann suchst du dir mit der Suche Aufgaben aus allen Projekten zusammen.
 - **Heute-Liste** mit Fortschrittsring, aufmunternden Sprüchen und kleiner Feier, wenn alles erledigt ist. Die Reihenfolge lässt sich per Drag & Drop ändern.
 - **Echter Tageswechsel um Mitternacht:** Offenes von heute wird zu den Resten von gestern.

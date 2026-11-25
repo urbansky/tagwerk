@@ -1,7 +1,7 @@
 /* Tagwerk – Oberfläche: Rendering, Overlays, Maus & Tastatur */
 import { S, snapshot, migrate, applyData } from './state.js';
 import {
-  COLORS, find, path, isLeaf, openCount, getList, todayCounts, newProject, newSection, insertAfter, appendTask,
+  find, path, isLeaf, openCount, getList, todayCounts, newProject, newSection, insertAfter, appendTask,
   firstInSection, markDone, undone, applyTitle, indent, outdent, moveItem, reorder, deleteNode,
   removeWithUndo, restoreDeleted, lastDeleted, newTask, renameProject,
   isResting, leafIds, canRestore, setRepeat, setDue, skipOccurrence
@@ -215,7 +215,7 @@ function todayRow(id){
     <span class="handle" data-h="today">${I.grip}</span>
     <button class="check" data-act="toggle" data-id="${id}" title="Erledigt (Leertaste)">${I.check}</button>
     <div class="title" data-act="edit" data-key="${key}">${titleHTML(n, key)}
-      <div class="meta"><span class="ctx"><span class="dot" style="background:${f.p.color}"></span>${esc(path(f).join(' › '))}</span>${n.repeat ? `<span class="rep-ic" title="${esc(describe(n.repeat, n.due))}">${I.rep}</span>` : ''}${n.note ? `<span class="note-prev">${I.note}Notiz</span>` : ''}</div></div>
+      <div class="meta"><span class="ctx">${esc(path(f).join(' › '))}</span>${n.repeat ? `<span class="rep-ic" title="${esc(describe(n.repeat, n.due))}">${I.rep}</span>` : ''}${n.note ? `<span class="note-prev">${I.note}Notiz</span>` : ''}</div></div>
     <div class="acts"><button class="ibtn" data-act="detail" data-id="${id}" title="Details (O)">${I.info}</button></div>
     <button class="ibtn sunbtn on" data-act="today" data-id="${id}" title="Aus Heute entfernen (T)">${I.sunFill}</button>
   </div>`;
@@ -232,7 +232,6 @@ function projectBlock(p){
     <div class="p-head" data-act="collapse" data-id="${p.id}">
       <span class="handle" data-h="project">${I.grip}</span>
       <span class="chev">${I.chev}</span>
-      <button class="pdot" data-act="color" data-id="${p.id}" style="background:${p.color}" title="Farbe ändern"></button>
       ${S.ui.pedit === p.id
         ? `<input class="edit pedit p-name" data-pedit="${p.id}" data-act="noop" value="${esc(p.name)}" placeholder="Projektname">`
         : `<span class="p-name" data-act="p-edit" data-id="${p.id}" title="Umbenennen">${esc(p.name)}</span>`}
@@ -241,7 +240,6 @@ function projectBlock(p){
       <span class="spacer"></span>
       <button class="ibtn p-del" data-act="p-del" data-id="${p.id}" title="Projekt löschen">${I.trash}</button>
       <button class="ibtn" data-act="add" data-pid="${p.id}" title="Neue Aufgabe">${I.plus}</button>
-      ${S.ui.color === p.id ? `<div class="palette" data-act="noop">${COLORS.map(c => `<button class="sw ${c === p.color ? 'on' : ''}" data-act="setcolor" data-pid="${p.id}" data-c="${c}" style="background:${c}"></button>`).join('')}</div>` : ''}
     </div>
     ${p.collapsed ? '' : `<div class="p-body ${S.opening === p.id ? 'opening' : ''}"><div class="tasks" data-list="${p.id}">${items}</div>
       <div class="addrows"><button class="addrow" data-act="add" data-pid="${p.id}">${I.plus} Aufgabe hinzufügen</button><button class="addrow sec" data-act="add-sec" data-pid="${p.id}" title="Oder eine Aufgabe mit „:“ am Ende eingeben">${I.plus} Abschnitt</button></div></div>`}
@@ -447,7 +445,7 @@ function planStep1(){
     const seg = rep
       ? btn(id, 'skip', 'Diesmal auslassen', d) + btn(id, 'later', 'Später', d) + btn(id, 'keep', `${I.sunSm} Heute`, d)
       : btn(id, 'back', 'Zurücklegen', d) + btn(id, 'keep', `${I.sunSm} Heute`, d);
-    return `<div class="lo ${d === 'keep' ? 'keep' : d ? 'back' : ''}"><span class="dot" style="background:${f.p.color}"></span>
+    return `<div class="lo ${d === 'keep' ? 'keep' : d ? 'back' : ''}">
       <div class="title" style="cursor:default"><div>${fmtTitle(f.n.title)}</div><div class="meta">${meta}</div></div>
       <div class="seg">${seg}</div></div>`; };
   const lead = lo && due ? 'Gestern ist etwas liegen geblieben, und wiederkehrende Aufgaben sind fällig. Was nimmst du mit in den heutigen Tag?'
@@ -490,7 +488,7 @@ function renderPick(){
       if (it.type === 'section') { const inner = it.children.map(t => th(t, it.title)).join(''); if (inner) ph += `<div class="pk-sec">${esc(it.title)}</div>` + inner; }
       else ph += th(it);
     }
-    if (ph) html += `<div class="pk-proj"><span class="dot" style="background:${p.color}"></span>${esc(p.name)}</div>` + ph;
+    if (ph) html += `<div class="pk-proj">${esc(p.name)}</div>` + ph;
   }
   box.innerHTML = html || `<p class="pv-empty">Nichts gefunden.</p>`;
   box.scrollTop = st;
@@ -500,7 +498,7 @@ function renderDay(){
   const P = S.ui.plan, box = $('#dayList'); if (!box) return;
   box.innerHTML = P.picks.length ? P.picks.map((id, i) => { const f = find(id); if (!f) return '';
     return `<div class="day-item ${f.n.done ? 'done' : ''} ${P.newId === id ? 'new' : ''}" data-id="${id}"><span class="handle" data-h="day">${I.grip}</span><span class="num">${i + 1}</span>
-      <div class="title"><div>${f.n.important ? `<span class="star">${I.star}</span>` : ''}${fmtTitle(f.n.title)}</div><div class="meta"><span class="ctx"><span class="dot" style="background:${f.p.color}"></span>${esc(path(f).join(' › '))}</span></div></div>
+      <div class="title"><div>${f.n.important ? `<span class="star">${I.star}</span>` : ''}${fmtTitle(f.n.title)}</div><div class="meta"><span class="ctx">${esc(path(f).join(' › '))}</span></div></div>
       <button class="ibtn" data-act="plan-pick" data-id="${id}" title="Entfernen">${I.x}</button></div>`; }).join('')
     : `<div class="day-empty">${sunArt()}<p>Klicke links auf Aufgaben,<br>um sie in deinen Tag zu holen.</p></div>`;
   $('#dayCount').textContent = P.picks.length ? `${P.picks.length} ${P.picks.length === 1 ? 'Aufgabe' : 'Aufgaben'}` : '';
@@ -549,7 +547,7 @@ function renderImpPreview(){
   const box = $('#impPrev'); if (!box) return;
   const { parsed, over } = S.ui.imp; let count = 0;
   if (!parsed.length) { box.innerHTML = `<div class="pv-empty">${I.paste}<br>Die Vorschau erscheint hier, sobald du Text einfügst.</div>`; }
-  else box.innerHTML = parsed.map((p, pi) => `<div class="pv-proj"><span class="dot" style="background:${COLORS[pi % COLORS.length]}"></span>${esc(p.name)}</div>` + p.raw.map((n, ii) => {
+  else box.innerHTML = parsed.map((p, pi) => `<div class="pv-proj">${esc(p.name)}</div>` + p.raw.map((n, ii) => {
     const k = pi + '/' + ii, sec = k in over ? over[k] : looksLikeSection(n);
     const sub = (c, cls) => { count++; return `<div class="pv-row ${cls}"><span class="mini"></span>${c.important ? `<span class="star">${I.star}</span>` : ''}${esc(c.text)}</div>` + (c.children.length ? `<div class="pv-row note">${I.note} Notiz: ${c.children.length} Zeile${c.children.length > 1 ? 'n' : ''}</div>` : ''); };
     if (sec) return `<div class="pv-sec"><button class="badge sec" data-act="imp-toggle" data-k="${k}" title="In Aufgabe umwandeln">Abschnitt</button>${esc(n.text.replace(/:$/, ''))}</div><div class="pv-in">` + n.children.map(t => { count++; return `<div class="pv-row"><span class="mini"></span>${t.important ? `<span class="star">${I.star}</span>` : ''}${esc(t.text)}</div>` + t.children.map(c => sub(c, 'sub')).join(''); }).join('') + `</div>`;
@@ -588,7 +586,7 @@ function renderHistory(){
     <div class="d-head"><h2>${I.clock} Verlauf</h2><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
     <div class="stats"><div class="stat"><b>${cnt('Heute')}</b><span>heute erledigt</span></div><div class="stat"><b>${cnt('Gestern')}</b><span>gestern</span></div><div class="stat"><b>🔥 ${streak()}</b><span>Tage in Folge</span></div></div>
     <div class="d-body">${[...groups].map(([l, hs]) => `<div class="h-lbl">${l}</div>` + hs.map(h => `<div class="h-row"><span class="hc">${I.checkS}</span>
-      <div class="title" style="cursor:default"><div>${fmtTitle(h.title)}</div><div class="meta"><span class="ctx"><span class="dot" style="background:${h.color}"></span>${esc(h.path.join(' › '))}</span><span>${new Date(h.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span></div></div>
+      <div class="title" style="cursor:default"><div>${fmtTitle(h.title)}</div><div class="meta"><span class="ctx">${esc(h.path.join(' › '))}</span><span>${new Date(h.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span></div></div>
       ${canRestore(h) ? `<button class="ibtn" data-act="hist-restore" data-id="${h.id}" title="Wiederherstellen">${I.undo}</button>` : ''}</div>`).join('')).join('') || '<p class="muted">Noch nichts erledigt.</p>'}</div>
   </aside>`;
 }
@@ -599,7 +597,7 @@ function renderDetail(){
   const n = f.n, leaf = isLeaf(n), inT = S.today.includes(n.id);
   const links = (n.title + ' ' + (n.note || '')).match(/https?:\/\/[^\s)]+/g) || [];
   return `<div class="scrim" data-act="close-ov"></div><aside class="drawer" aria-label="Details">
-    <div class="d-head"><span class="ctx muted small"><span class="dot" style="background:${f.p.color}"></span>${esc(path(f).join(' › '))}</span><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
+    <div class="d-head"><span class="ctx muted small">${esc(path(f).join(' › '))}</span><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
     <div class="d-body">
       <textarea class="d-title" data-f="title" rows="2">${esc(n.title)}</textarea>
       <div class="d-toggles"><button class="tg ${n.important ? 'on imp' : ''}" data-act="d-imp">${I.star} Wichtig</button>${leaf ? `<button class="tg ${inT ? 'on sun' : ''}" data-act="d-today">${I.sun} Für heute</button>` : ''}</div>
@@ -666,9 +664,9 @@ document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
   const rowEl = e.target.closest('#app [data-row]');
   if (rowEl && !(S.editing && S.editing === rowEl.dataset.row)) S.focus = rowEl.dataset.row;
-  if (!a) { if (S.ui.menu || S.ui.color) { S.ui.menu = false; S.ui.color = null; render(); } else if (rowEl) render(); return; }
+  if (!a) { if (S.ui.menu) { S.ui.menu = false; render(); } else if (rowEl) render(); return; }
   const d = a.dataset, act = d.act;
-  if (act !== 'menu' && act !== 'noop' && act !== 'color' && act !== 'setcolor' && (S.ui.menu || S.ui.color)) { S.ui.menu = false; S.ui.color = null; }
+  if (act !== 'menu' && act !== 'noop' && S.ui.menu) S.ui.menu = false;
   switch (act) {
     case 'noop': return;
     case 'p-edit': S.ui.pedit = d.id; render(); return;
@@ -688,11 +686,9 @@ document.addEventListener('click', e => {
     case 'detail': S.ui.detail = d.id; openOv('detail'); return;
     case 'collapse': { const p = S.projects.find(p => p.id === d.id); p.collapsed = !p.collapsed; if (!p.collapsed) S.opening = p.id; render(); return; }
     case 'collapse-s': { const f = find(d.id); f.n.collapsed = !f.n.collapsed; render(); return; }
-    case 'color': S.ui.color = S.ui.color === d.id ? null : d.id; render(); return;
-    case 'setcolor': { const p = S.projects.find(p => p.id === d.pid); p.color = d.c; S.ui.color = null; render(); return; }
     case 'add': addTask({ pid: d.pid, sid: d.sid }); return;
     case 'add-sec': addSection(d.pid); return;
-    case 'menu': S.ui.menu = !S.ui.menu; S.ui.color = null; render(); return;
+    case 'menu': S.ui.menu = !S.ui.menu; render(); return;
     case 'newproject': { const name = prompt('Name des neuen Projekts'); if (name && name.trim()) { const p = newProject(name.trim()); const t = newTask(); p.items.push(t); S.editing = S.focus = 'p:' + t.id; } S.ui.menu = false; render(); return; }
     case 'export': exportJSON(); S.ui.menu = false; render(); return;
     case 'importjson': S.ui.menu = false; render(); $('#jsonFile').click(); return;
@@ -830,7 +826,7 @@ document.addEventListener('keydown', e => {
   else if (k === 'p') openPlan();
   else if (k === 'h') openOv('history');
   else if (k === '?') openOv('help');
-  else if (k === 'Escape') { S.focus = null; S.ui.menu = false; S.ui.color = null; render(); }
+  else if (k === 'Escape') { S.focus = null; S.ui.menu = false; render(); }
 });
 function editKey(e){
   const inp = e.target, key = inp.dataset.edit, id = key.slice(2), ctx = key[0];

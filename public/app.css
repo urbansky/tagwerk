@@ -103,7 +103,6 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .ph{color:var(--faint)}
 .meta{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin-top:2px;font-size:12.5px;color:var(--muted)}
 .ctx{display:inline-flex;align-items:center;gap:6px}
-.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
 .note-prev{display:inline-flex;align-items:center;gap:4px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .link{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:500;padding:1px 8px;border-radius:999px;background:#eef4ff;color:#1f63d6;text-decoration:none;vertical-align:1px;margin:0 2px}
 .link:hover{background:#dde9ff}
@@ -130,15 +129,9 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .p-head{display:flex;align-items:center;gap:8px;padding:11px 12px 11px 14px;cursor:pointer;user-select:none;position:relative;border-radius:var(--radius)}
 .chev{color:var(--faint);display:grid;place-items:center;transition:transform .2s var(--ease)}
 .collapsed>.p-head .chev,.collapsed>.s-head .chev{transform:rotate(-90deg)}
-.pdot{width:13px;height:13px;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 0 4px var(--line);transition:transform .15s}
-.pdot:hover{transform:scale(1.2)}
 .p-name{font-weight:650;font-size:16.5px;letter-spacing:-.01em;margin-left:2px}
 .p-body{padding:0 8px 8px}
 .p-body.opening{animation:fadein .2s}
-.palette{position:absolute;top:40px;left:40px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:8px;display:grid;grid-template-columns:repeat(4,24px);gap:8px;z-index:10;animation:pop .15s var(--ease);cursor:default}
-.sw{width:24px;height:24px;border-radius:50%;transition:transform .12s}
-.sw:hover{transform:scale(1.15)}
-.sw.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--text)}
 /* Abschnitt: ruhige Fläche innerhalb des Projekts – Anfang und Ende auf einen Blick */
 .section{background:var(--surface-2);border:1px solid var(--line-2);border-radius:12px;margin:10px 2px;padding:2px 0 6px}
 .section.collapsed{padding-bottom:2px}
