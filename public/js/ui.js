@@ -731,7 +731,10 @@ document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
   const rowEl = e.target.closest('#app [data-row]');
   if (rowEl && !(S.editing && S.editing === rowEl.dataset.row)) S.focus = rowEl.dataset.row;
-  if (!a) { if (S.ui.menu) { S.ui.menu = false; render(); } else if (rowEl) render(); return; }
+  // Klick neben die Aufgaben hebt die Auswahl auf – wie Esc (Dialoge und Hinweise ausgenommen)
+  const unfocus = !rowEl && S.focus && !e.target.closest('#ov, #toast');
+  if (unfocus) S.focus = null;
+  if (!a) { if (S.ui.menu) { S.ui.menu = false; render(); } else if (rowEl || unfocus) render(); return; }
   const d = a.dataset, act = d.act;
   if (act !== 'menu' && act !== 'noop' && S.ui.menu) S.ui.menu = false;
   switch (act) {
