@@ -16,12 +16,13 @@ Tagwerk läuft komplett im Browser. Es gibt keinen Server und keine Konten. Dein
 - **Echter Tageswechsel um Mitternacht:** Offenes von heute wird zu den Resten von gestern.
 - **Wiederkehrende Aufgaben:** täglich bis jährlich, mit festem Termin oder ab Erledigung. Eine abgehakte Aufgabe bekommt sofort den nächsten Termin und ist nach dem Tageswechsel wieder offen, mit frischen Unteraufgaben. Fällige Aufgaben schlägt „Tag planen“ vor (Heute, Später oder Diesmal auslassen), verpasste Termine stapeln sich nicht.
 - **Wichtig-Markierung** mit Stern.
+- **Gestartet-Markierung** für Aufgaben, an denen du gerade arbeitest: halb gefüllter Kreis und Hinweis „Gestartet“. Beim Erledigen fällt die Markierung weg.
 - **Details zu jeder Aufgabe:** Notizen und Links, die direkt anklickbar sind.
 - **Verlauf** aller erledigten Aufgaben, gruppiert nach Tagen, mit Zählern für heute und gestern, einer Serie („Tage in Folge“) und Wiederherstellen.
 - **Löschen mit Rückgängig** (⌘Z).
 - **Aufräumen:** Erledigte Aufgaben verschwinden nach 14 Tagen aus den Projekten, im Verlauf bleiben sie.
 - **Import aus der Notizen-App oder Markdown:** Überschriften werden zu Projekten, Punkte zu Aufgaben, eingerückte Punkte zu Unteraufgaben, fett markierte Punkte zu wichtigen Aufgaben. Formatierter Text aus der Zwischenablage wird erkannt, abgehakte Punkte werden übersprungen. Eine Vorschau zeigt vorher, was entsteht. Bestehende Projekte lassen sich ersetzen oder ergänzen.
-- **Komplett mit der Tastatur bedienbar:** Navigieren (↑ ↓ bzw. J K), Erledigen (Leertaste), Für heute (T), Wichtig (I), Bearbeiten (↵), Ein- und Ausrücken (⇥ / ⇧⇥), Verschieben (⌥↑ ↓), Löschen (⌘⌫), Tag planen (P), Verlauf (H). <kbd>?</kbd> zeigt alle Tastenkürzel.
+- **Komplett mit der Tastatur bedienbar:** Navigieren (↑ ↓ bzw. J K), Erledigen (Leertaste), Für heute (T), Gestartet (S), Wichtig (I), Bearbeiten (↵), Ein- und Ausrücken (⇥ / ⇧⇥), Verschieben (⌥↑ ↓), Löschen (⌘⌫), Tag planen (P), Verlauf (H). <kbd>?</kbd> zeigt alle Tastenkürzel.
 - **Backup** als JSON exportieren und wieder einspielen.
 
 ### Technisch

@@ -4,7 +4,7 @@ import {
   find, path, isLeaf, openCount, getList, todayCounts, newProject, newSection, insertAfter, appendTask,
   firstInSection, markDone, undone, applyTitle, indent, outdent, moveItem, reorder, deleteNode,
   removeWithUndo, restoreDeleted, lastDeleted, newTask, renameProject,
-  isResting, leafIds, canRestore, setRepeat, setDue, skipOccurrence
+  isResting, leafIds, canRestore, setRepeat, setDue, skipOccurrence, toggleStarted
 } from './model.js';
 import { parseNotes, looksLikeSection, toModel } from './parser.js';
 import { htmlToNotes, looksStructured } from './htmlimport.js';
@@ -28,6 +28,7 @@ const I = {
   grip:`<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg>`,
   plus:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>`,
   star:`<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 1.5l1.9 4 4.4.5-3.3 3 .9 4.3L8 11.1 4.1 13.3l.9-4.3-3.3-3 4.4-.5z"/></svg>`,
+  play:`<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M5 3.2v9.6a.6.6 0 00.9.5l7.4-4.8a.6.6 0 000-1L5.9 2.7a.6.6 0 00-.9.5z"/></svg>`,
   note:`<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h6"/></svg>`,
   more:`<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg>`,
   clock:`<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.4 1.5"/></svg>`,
@@ -208,14 +209,16 @@ function titleHTML(n, key){
   if (S.editing === key) return `<input class="edit" data-edit="${key}" value="${esc(n.title)}" placeholder="Neue Aufgabe">`;
   return `${n.important ? `<span class="star">${I.star}</span>` : ''}<span class="t">${n.title ? fmtTitle(n.title) : '<span class="ph">Neue Aufgabe</span>'}</span>`;
 }
+const isStarted = n => !!n.started && !n.done;
+const startedChip = n => isStarted(n) ? `<span class="chip started" title="Gestartet (S)">${I.play} Gestartet</span>` : '';
 function todayRow(id){
   const f = find(id); if (!f) return '';
   const n = f.n, key = 't:' + id;
-  return `<div class="row today-row ${n.done ? 'done' : ''} ${n.important ? 'imp' : ''} ${S.focus === key ? 'focus' : ''} ${S.flash.has(id) ? 'flash' : ''}" data-row="${key}" data-id="${id}">
+  return `<div class="row today-row ${n.done ? 'done' : ''} ${isStarted(n) ? 'started' : ''} ${n.important ? 'imp' : ''} ${S.focus === key ? 'focus' : ''} ${S.flash.has(id) ? 'flash' : ''}" data-row="${key}" data-id="${id}">
     <span class="handle" data-h="today">${I.grip}</span>
     <button class="check" data-act="toggle" data-id="${id}" title="Erledigt (Leertaste)">${I.check}</button>
     <div class="title" data-act="edit" data-key="${key}">${titleHTML(n, key)}
-      <div class="meta"><span class="ctx">${esc(path(f).join(' › '))}</span>${n.repeat ? `<span class="rep-ic" title="${esc(describe(n.repeat, n.due))}">${I.rep}</span>` : ''}${n.note ? `<span class="note-prev">${I.note}Notiz</span>` : ''}</div></div>
+      <div class="meta">${startedChip(n)}<span class="ctx">${esc(path(f).join(' › '))}</span>${n.repeat ? `<span class="rep-ic" title="${esc(describe(n.repeat, n.due))}">${I.rep}</span>` : ''}${n.note ? `<span class="note-prev">${I.note}Notiz</span>` : ''}</div></div>
     <div class="acts"><button class="ibtn" data-act="detail" data-id="${id}" title="Details (O)">${I.info}</button></div>
     <button class="ibtn sunbtn on" data-act="today" data-id="${id}" title="Aus Heute entfernen (T)">${I.sunFill}</button>
   </div>`;
@@ -265,8 +268,8 @@ function row(n){
   const subDone = n.children.filter(c => c.done).length;
   const noteLine = n.note ? n.note.split('\n')[0].replace(/^•\s*/, '') : '';
   const rest = n.repeat && (n.done || isResting(n));
-  const meta = repChip(n) + (n.children.length && !n.done ? `<span class="chip">${subDone}/${n.children.length}</span>` : '') + (noteLine ? `<span class="note-prev">${I.note}${esc(noteLine)}${n.note.includes('\n') ? ' …' : ''}</span>` : '');
-  return `<div class="row ${n.important ? 'imp' : ''} ${inT ? 'in-today' : ''} ${rest ? 'resting' : ''} ${n.done ? 'done' : ''} ${S.focus === key ? 'focus' : ''} ${S.flash.has(n.id) ? 'flash' : ''}" data-row="${key}" data-id="${n.id}">
+  const meta = startedChip(n) + repChip(n) + (n.children.length && !n.done ? `<span class="chip">${subDone}/${n.children.length}</span>` : '') + (noteLine ? `<span class="note-prev">${I.note}${esc(noteLine)}${n.note.includes('\n') ? ' …' : ''}</span>` : '');
+  return `<div class="row ${n.important ? 'imp' : ''} ${inT ? 'in-today' : ''} ${rest ? 'resting' : ''} ${n.done ? 'done' : ''} ${isStarted(n) ? 'started' : ''} ${S.focus === key ? 'focus' : ''} ${S.flash.has(n.id) ? 'flash' : ''}" data-row="${key}" data-id="${n.id}">
     <span class="handle" data-h="item">${I.grip}</span>
     <button class="check" data-act="toggle" data-id="${n.id}" title="Erledigt (Leertaste)">${I.check}</button>
     <div class="title" data-act="edit" data-key="${key}">${titleHTML(n, key)}${meta ? `<div class="meta">${meta}</div>` : ''}</div>
@@ -371,6 +374,11 @@ function collapseOut(el){
   setTimeout(() => { el.style.transition = 'max-height .28s ease, opacity .28s ease, transform .28s ease'; el.style.maxHeight = '0px'; el.style.opacity = '0'; el.style.transform = 'translateX(14px)'; }, 340);
 }
 
+function toggleStart(id){
+  const n = find(id)?.n; if (!n || n.type !== 'task') return;
+  if (n.done) { toast('Erledigte Aufgaben lassen sich nicht starten.'); return; }
+  toggleStarted(id); render();
+}
 function toggleToday(id){
   const f = find(id); if (!f) return;
   if (!isLeaf(f.n)) { toast('Wähle für heute eine einzelne Unteraufgabe aus.'); return; }
@@ -629,7 +637,7 @@ function renderDetail(){
     <div class="d-head"><span class="ctx muted small">${esc(path(f).join(' › '))}</span><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div>
     <div class="d-body">
       <textarea class="d-title" data-f="title" rows="2">${esc(n.title)}</textarea>
-      <div class="d-toggles"><button class="tg ${n.important ? 'on imp' : ''}" data-act="d-imp">${I.star} Wichtig</button>${leaf ? `<button class="tg ${inT ? 'on sun' : ''}" data-act="d-today">${I.sun} Für heute</button>` : ''}</div>
+      <div class="d-toggles">${n.done ? '' : `<button class="tg ${n.started ? 'on go' : ''}" data-act="d-start">${I.play} Gestartet</button>`}<button class="tg ${n.important ? 'on imp' : ''}" data-act="d-imp">${I.star} Wichtig</button>${leaf ? `<button class="tg ${inT ? 'on sun' : ''}" data-act="d-today">${I.sun} Für heute</button>` : ''}</div>
       ${arrangeBlock(f)}
       <label class="lbl">Notiz &amp; Links</label>
       <textarea class="d-note" data-f="note" rows="7" placeholder="Notizen, Links, Gedanken …">${esc(n.note || '')}</textarea>
@@ -671,7 +679,7 @@ function repeatBlock(n){
 function renderHelp(){
   const r = (k, t) => `<div><span>${t}</span><span>${k.split(' ').map(x => `<kbd>${x}</kbd>`).join('')}</span></div>`;
   return `<div class="scrim" data-act="close-ov"></div><div class="modal small"><div class="m-head"><h2>Tastenkürzel</h2><span class="spacer"></span><button class="ibtn" data-act="close-ov">${I.x}</button></div><div class="keys">
-    <h4>Liste</h4>${r('↑ ↓', 'Aufgabe auswählen (auch J / K)')}${r('Leertaste', 'Erledigt')}${r('T', 'Für heute ☀️ an/aus')}${r('I', 'Wichtig an/aus')}${r('↵', 'Bearbeiten')}${r('O', 'Details öffnen')}${r('N', 'Neue Aufgabe darunter')}${r('⌥ ↑', 'Nach oben verschieben (⌥↓ nach unten)')}${r('⌘ ⌫', 'Löschen (auch Entf) – mit Rückgängig')}${r('⌘ Z', 'Löschen rückgängig machen')}
+    <h4>Liste</h4>${r('↑ ↓', 'Aufgabe auswählen (auch J / K)')}${r('Leertaste', 'Erledigt')}${r('T', 'Für heute ☀️ an/aus')}${r('S', 'Gestartet an/aus')}${r('I', 'Wichtig an/aus')}${r('↵', 'Bearbeiten')}${r('O', 'Details öffnen')}${r('N', 'Neue Aufgabe darunter')}${r('⌥ ↑', 'Nach oben verschieben (⌥↓ nach unten)')}${r('⌘ ⌫', 'Löschen (auch Entf) – mit Rückgängig')}${r('⌘ Z', 'Löschen rückgängig machen')}
     <h4>Abschnitte</h4>${r('Titel:', 'Aufgabe mit „:“ am Ende wird zum Abschnitt')}${r('↵', 'Abschnitt umbenennen (Kopf ausgewählt)')}${r('Leertaste', 'Abschnitt auf-/zuklappen')}${r('⌘ ⌫', 'Abschnitt auflösen – Aufgaben bleiben')}
     <h4>Beim Bearbeiten</h4>${r('↵', 'Speichern + neue Aufgabe darunter')}${r('⇥', 'Einrücken → Unteraufgabe')}${r('⇧ ⇥', 'Ausrücken')}${r('⌫', 'In leerer Zeile: löschen')}${r('Esc', 'Fertig')}
     <h4>Allgemein</h4>${r('P', 'Tag planen')}${r('H', 'Verlauf')}${r('?', 'Diese Hilfe')}
@@ -785,6 +793,7 @@ document.addEventListener('click', e => {
     // Details
     case 'd-imp': { const f = find(S.ui.detail); f.n.important = !f.n.important; renderOv(); render(); return; }
     case 'd-today': toggleToday(S.ui.detail); renderOv(); return;
+    case 'd-start': toggleStart(S.ui.detail); renderOv(); return;
     case 'd-from': { const n = find(S.ui.detail)?.n; if (n && n.repeat) { if (d.v === 'done') n.repeat.from = 'done'; else delete n.repeat.from; } renderOv(); render(); return; }
     case 'd-indent': { const msg = indent(S.ui.detail); if (msg) toast(msg); renderOv(); render(); return; }
     case 'd-outdent': outdent(S.ui.detail); renderOv(); render(); return;
@@ -885,12 +894,13 @@ document.addEventListener('keydown', e => {
     // Abschnittskopf: Leertaste klappt, ↵ benennt um, N legt erste Aufgabe darin an
     if (k === ' ' || k === 'x') { e.preventDefault(); fs.n.collapsed = !fs.n.collapsed; render(); return; }
     if (k === 'n') { e.preventDefault(); S.editing = S.focus = 'p:' + firstInSection(id); render(); return; }
-    if (k === 't' || k === 'i' || k === 'o') return;
+    if (k === 't' || k === 'i' || k === 'o' || k === 's') return;
   }
   if (k === 'ArrowDown' || k === 'j') { e.preventDefault(); if (e.altKey && key) { moveItem(key, 1); render(); } else go(idx + 1); }
   else if (k === 'ArrowUp' || k === 'k') { e.preventDefault(); if (e.altKey && key) { moveItem(key, -1); render(); } else go(idx < 0 ? 0 : idx - 1); }
   else if ((k === ' ' || k === 'x') && id) { e.preventDefault(); const btn = document.querySelector(`[data-row="${key}"] .check`); toggleDone(id, btn); }
   else if (k === 't' && id) toggleToday(id);
+  else if (k === 's' && id) toggleStart(id);
   else if (k === 'i' && id) { const f = find(id); if (f) { f.n.important = !f.n.important; render(); } }
   else if (k === 'Enter' && key) { e.preventDefault(); S.editing = key; render(); }
   else if (k === 'o' && id) { S.ui.detail = id; openOv('detail'); }

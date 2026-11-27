@@ -45,6 +45,7 @@ function normTask(t){
   return {
     type: 'task', id: String(t.id), title: String(t.title ?? ''), important: !!t.important, note: String(t.note ?? ''), done: !!t.done,
     ...(t.doneAt ? { doneAt: +t.doneAt } : {}),
+    ...(t.started && !t.done ? { started: true } : {}),
     ...(repeat ? { repeat, ...(isDayKey(t.due) ? { due: t.due } : {}) } : {}),
     children: arr(t.children).map(normTask)
   };

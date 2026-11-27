@@ -54,11 +54,19 @@ export function firstInSection(sid){
   const f = find(sid); const t = newTask(); f.n.collapsed = false; f.n.children.unshift(t); return t.id;
 }
 
+/* ---------- Gestartet ---------- */
+/** Markiert eine offene Aufgabe als gestartet bzw. nimmt die Markierung wieder weg. Gibt den neuen Stand zurück. */
+export function toggleStarted(id){
+  const n = find(id)?.n; if (!n || n.type !== 'task' || n.done) return false;
+  if (n.started) delete n.started; else n.started = true;
+  return !!n.started;
+}
+
 /* ---------- Erledigen ---------- */
 export function markDone(id, at = Date.now()){
   const f = find(id); const n = f.n;
-  n.done = true; n.doneAt = at;
-  n.children.forEach(c => { if (!c.done) { c.done = true; c.doneAt = at; } });
+  n.done = true; n.doneAt = at; delete n.started;
+  n.children.forEach(c => { if (!c.done) { c.done = true; c.doneAt = at; delete c.started; } });
   const h = { id, title: n.title, path: path(f), color: f.p.color, at };
   // Wiederkehrend: Der nächste Termin steht sofort fest; wieder offen wird die Aufgabe beim Tageswechsel (renewRecurring)
   if (n.repeat) { if (n.due) h.due = n.due; n.due = nextDue(n.repeat, n.due, dayKey(new Date(at))); }

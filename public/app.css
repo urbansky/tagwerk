@@ -108,6 +108,10 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .link:hover{background:#dde9ff}
 .chip{font-size:12px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);padding:1px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .chip.sun{background:var(--sun-soft);color:var(--sun-ink);border-color:#ffe3a3}
+/* Gestartet: halb gefüllter Kreis und Chip */
+.chip.started{gap:3px;padding-left:6px;background:var(--focus-soft);color:#0861c4;border-color:#cfe3ff}
+.row.started:not(.checking) .check{border-color:var(--focus);background:linear-gradient(90deg,var(--focus) 50%,#fff 50%)}
+.row.started:not(.checking) .check:hover{border-color:var(--ok);background:var(--ok-soft)}
 .ibtn{width:28px;height:28px;flex:none;border-radius:8px;display:grid;place-items:center;color:var(--faint);transition:background .12s,color .12s}
 .ibtn:hover{background:rgba(0,0,0,.06);color:var(--text)}
 .ibtn.ghost{visibility:hidden}
@@ -164,6 +168,7 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .tg:hover{background:var(--surface-2)}
 .tg.on.imp{background:#fff4e5;border-color:#ffd49a;color:#b25f00}
 .tg.on.sun{background:var(--sun-soft);border-color:#ffd88a;color:var(--sun-ink)}
+.tg.on.go{background:var(--focus-soft);border-color:#cfe3ff;color:#0861c4}
 .lbl{display:block;font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px}
 .d-note{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:14px;line-height:1.5;resize:vertical;outline:none;background:var(--surface-2)}
 .d-note:focus{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-soft);background:#fff}
