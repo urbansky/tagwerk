@@ -16,7 +16,7 @@ Tagwerk läuft komplett im Browser. Es gibt keinen Server und keine Konten. Dein
 - **Echter Tageswechsel um Mitternacht:** Offenes von heute wird zu den Resten von gestern.
 - **Wiederkehrende Aufgaben:** täglich bis jährlich, mit festem Termin oder ab Erledigung. Eine abgehakte Aufgabe bekommt sofort den nächsten Termin und ist nach dem Tageswechsel wieder offen, mit frischen Unteraufgaben. Fällige Aufgaben schlägt „Tag planen“ vor (Heute, Später oder Diesmal auslassen), verpasste Termine stapeln sich nicht.
 - **Wichtig-Markierung** mit Stern.
-- **Gestartet-Markierung** für Aufgaben, an denen du gerade arbeitest: halb gefüllter Kreis und Hinweis „Gestartet“. Beim Erledigen fällt die Markierung weg.
+- **Gestartet-Markierung** für Aufgaben, an denen du gerade arbeitest, mit dem Hinweis „Gestartet“. Beim Erledigen fällt die Markierung weg.
 - **Details zu jeder Aufgabe:** Notizen und Links, die direkt anklickbar sind.
 - **Verlauf** aller erledigten Aufgaben, gruppiert nach Tagen, mit Zählern für heute und gestern, einer Serie („Tage in Folge“) und Wiederherstellen.
 - **Löschen mit Rückgängig** (⌘Z).

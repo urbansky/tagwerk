@@ -108,11 +108,8 @@ kbd{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 5px;bord
 .link:hover{background:#dde9ff}
 .chip{font-size:12px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);padding:1px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .chip.sun{background:var(--sun-soft);color:var(--sun-ink);border-color:#ffe3a3}
-/* Gestartet: hellgrün hinterlegter Kreis und Chip */
+/* Gestartet: nur der Chip, der Kreis bleibt wie bei offenen Aufgaben */
 .chip.started{gap:3px;padding-left:6px;background:var(--ok-soft);color:#1e7a3c;border-color:#bfe6cb}
-.row.started:not(.checking) .check{border-color:var(--ok);background:var(--ok-soft)}
-/* Beim Darüberfahren deutet das Häkchen an, dass ein Klick abhakt */
-.row.started:not(.checking) .check:hover svg{opacity:1;transform:scale(1);stroke:var(--ok)}
 .ibtn{width:28px;height:28px;flex:none;border-radius:8px;display:grid;place-items:center;color:var(--faint);transition:background .12s,color .12s}
 .ibtn:hover{background:rgba(0,0,0,.06);color:var(--text)}
 .ibtn.ghost{visibility:hidden}
