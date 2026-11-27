@@ -26,6 +26,11 @@ export const openCount = list => list.reduce((a, n) => a + (n.type === 'section'
 /** Was kommt in „Heute“, wenn man diese Aufgabe einplant: sie selbst oder ihre offenen Unteraufgaben */
 export const leafIds = n => isLeaf(n) ? [n.id] : n.children.filter(c => !c.done).map(c => c.id);
 export function getList(listId){ const p = S.projects.find(p => p.id === listId); if (p) return p.items; const f = find(listId); return f ? f.n.children : null; }
+/** Heute in Anzeigereihenfolge: offene Aufgaben oben, erledigte darunter – jeweils in der geplanten Reihenfolge */
+export function todayOrder(){
+  const done = id => !!find(id)?.n.done;
+  return [...S.today.filter(id => !done(id)), ...S.today.filter(done)];
+}
 export function todayCounts(){ const items = S.today.map(find).filter(Boolean); return { done: items.filter(f => f.n.done).length, total: items.length }; }
 
 /* ---------- Anlegen ---------- */
@@ -206,7 +211,13 @@ export function outdent(id){
 }
 export function moveItem(key, dir){
   const id = key.slice(2);
-  if (key[0] === 't') { const i = S.today.indexOf(id), j = i + dir; if (j < 0 || j >= S.today.length) return; [S.today[i], S.today[j]] = [S.today[j], S.today[i]]; return; }
+  if (key[0] === 't') {
+    // Nur innerhalb der eigenen Gruppe (offen bzw. erledigt) verschieben, so wie die Liste angezeigt wird
+    const order = todayOrder(), other = order[order.indexOf(id) + dir];
+    if (!other || !!find(other)?.n.done !== !!find(id)?.n.done) return;
+    const i = S.today.indexOf(id), j = S.today.indexOf(other);
+    [S.today[i], S.today[j]] = [S.today[j], S.today[i]]; return;
+  }
   const f = find(id); if (!f) return;
   const vis = f.list.filter(x => !x.done); const i = vis.indexOf(f.n), j = i + dir; if (j < 0 || j >= vis.length) return;
   const a = f.list.indexOf(f.n), b = f.list.indexOf(vis[j]); [f.list[a], f.list[b]] = [f.list[b], f.list[a]];

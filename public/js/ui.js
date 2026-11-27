@@ -4,7 +4,7 @@ import {
   find, path, isLeaf, openCount, getList, todayCounts, newProject, newSection, insertAfter, appendTask,
   firstInSection, markDone, undone, applyTitle, indent, outdent, moveItem, reorder, deleteNode,
   removeWithUndo, restoreDeleted, lastDeleted, newTask, renameProject,
-  isResting, leafIds, canRestore, setRepeat, setDue, skipOccurrence, toggleStarted
+  isResting, leafIds, canRestore, setRepeat, setDue, skipOccurrence, toggleStarted, todayOrder
 } from './model.js';
 import { parseNotes, looksLikeSection, toModel } from './parser.js';
 import { htmlToNotes, looksStructured } from './htmlimport.js';
@@ -197,7 +197,7 @@ function renderToday(){
       <p>${lo ? `<b>${lo} Aufgaben von gestern</b> warten auf deine Entscheidung. ` : ''}${due ? `<b>${due} wiederkehrende ${due === 1 ? 'Aufgabe ist' : 'Aufgaben sind'} fällig.</b> ` : ''}Such dir aus deinen Projekten die Aufgaben für heute heraus.</p>
       <button class="btn sun lg" data-act="plan">${I.sun} Tag planen <kbd>P</kbd></button></div>`;
   } else {
-    body = `<div class="t-list" id="todayList">${S.today.map(todayRow).join('')}</div>`
+    body = `<div class="t-list" id="todayList">${todayOrder().map(todayRow).join('')}</div>`
       + (done === total ? `<div class="alldone"><span class="em">🎉</span><div><b>Alles geschafft!</b><br><span>${total} von ${total} Aufgaben erledigt – Feierabend verdient.</span></div></div>` : '')
       + `<div class="t-foot"><button class="addrow" data-act="plan2">${I.plus} Weitere Aufgaben für heute auswählen</button></div>`;
   }
@@ -348,9 +348,22 @@ function reorderList(listId, ids){ reorder(listId, ids); render(); }
 
 /* ---------- Aktionen ---------- */
 const CHEERS = ['Erledigt ✓', 'Stark! 💪', 'Weiter so!', 'Eins weniger ✨', 'Abgehakt!', 'Läuft bei dir 🚀'];
+/** Zeichnet neu und lässt die Heute-Zeilen an ihren neuen Platz gleiten (erledigte wandern nach unten) */
+function renderGliding(){
+  const tops = new Map([...document.querySelectorAll('#todayList .row')].map(r => [r.dataset.id, r.getBoundingClientRect().top]));
+  render();
+  document.querySelectorAll('#todayList .row').forEach(r => {
+    const top = tops.get(r.dataset.id); if (top == null) return;
+    const dy = top - r.getBoundingClientRect().top; if (Math.abs(dy) < 1) return;
+    r.style.transition = 'none'; r.style.transform = `translateY(${dy}px)`;
+    r.offsetHeight;   // Startposition übernehmen, bevor die Bewegung beginnt
+    r.style.transition = 'transform .36s var(--ease)'; r.style.transform = '';
+    r.addEventListener('transitionend', () => { r.style.transition = ''; }, { once: true });
+  });
+}
 function toggleDone(id, btn){
   const f = find(id); if (!f) return;
-  if (f.n.done) { undone(id); render(); return; }
+  if (f.n.done) { undone(id); renderGliding(); return; }
   const rowEl = btn && btn.closest('.row');
   const inToday = rowEl && rowEl.classList.contains('today-row');
   if (rowEl) rowEl.classList.add('checking');
@@ -361,7 +374,7 @@ function toggleDone(id, btn){
     const next = f.n.repeat ? ` · ${I.rep} wieder ${esc(onDay(f.n.due))}` : '';
     const after = todayCounts();
     const allDone = after.total && after.done === after.total && before.done < before.total && S.today.includes(id);
-    S.celebrate = !!allDone; render();
+    S.celebrate = !!allDone; renderGliding();
     if (allDone) {
       const r = $('.ring'); const b = r ? r.getBoundingClientRect() : { left: innerWidth / 2, top: 120, width: 0, height: 0 };
       confetti(b.left + b.width / 2, b.top + b.height / 2);
@@ -774,7 +787,7 @@ document.addEventListener('click', e => {
     case 'history': openOv('history'); return;
     case 'import': S.ui.imp = { parsed: [], over: {}, mode: 'replace' }; openOv('import'); return;
     case 'close-ov': closeOv(); return;
-    case 'undo': undone(d.id); $('#toast').innerHTML = ''; render(); return;
+    case 'undo': undone(d.id); $('#toast').innerHTML = ''; renderGliding(); return;
     case 'undo-del': undoDelete(); return;
     case 'hist-restore': undone(d.id); renderOv(); render(); toast('Wiederhergestellt'); return;
     // Tag planen

@@ -12,7 +12,7 @@ Tagwerk läuft komplett im Browser. Es gibt keinen Server und keine Konten. Dein
 
 - **Projekte mit Abschnitten, Aufgaben und Unteraufgaben.** Jedes Projekt lässt sich umbenennen, auf- und zuklappen und löschen. Eine Aufgabe, deren Titel mit „:“ endet, wird zum Abschnitt.
 - **Tag planen:** Jeden Morgen öffnet sich der Plan für heute automatisch. Zuerst entscheidest du über die Reste von gestern (mitnehmen oder zurücklegen), dann suchst du dir mit der Suche Aufgaben aus allen Projekten zusammen.
-- **Heute-Liste** mit Fortschrittsring, aufmunternden Sprüchen und kleiner Feier, wenn alles erledigt ist. Die Reihenfolge lässt sich per Drag & Drop ändern.
+- **Heute-Liste** mit Fortschrittsring, aufmunternden Sprüchen und kleiner Feier, wenn alles erledigt ist. Die Reihenfolge lässt sich per Drag & Drop ändern, erledigte Aufgaben wandern nach unten.
 - **Echter Tageswechsel um Mitternacht:** Offenes von heute wird zu den Resten von gestern.
 - **Wiederkehrende Aufgaben:** täglich bis jährlich, mit festem Termin oder ab Erledigung. Eine abgehakte Aufgabe bekommt sofort den nächsten Termin und ist nach dem Tageswechsel wieder offen, mit frischen Unteraufgaben. Fällige Aufgaben schlägt „Tag planen“ vor (Heute, Später oder Diesmal auslassen), verpasste Termine stapeln sich nicht.
 - **Wichtig-Markierung** mit Stern.
